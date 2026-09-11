@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-ink-950 text-slate-200 antialiased;
+  background-image:
+    radial-gradient(1100px 600px at 12% -10%, rgba(91, 140, 255, 0.16), transparent 60%),
+    radial-gradient(900px 500px at 95% 0%, rgba(22, 199, 132, 0.12), transparent 55%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(91, 140, 255, 0.35);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-white/10 bg-ink-900/70 backdrop-blur-sm shadow-lg shadow-black/30;
+  }
+
+  .card-pad {
+    @apply p-5 sm:p-6;
+  }
+
+  .section-title {
+    @apply text-lg font-semibold tracking-tight text-white sm:text-xl;
+  }
+
+  .muted {
+    @apply text-sm text-slate-400;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-slate-300;
+  }
+
+  .stat-label {
+    @apply text-[11px] font-medium uppercase tracking-wider text-slate-500;
+  }
+
+  .stat-value {
+    @apply text-base font-semibold text-white sm:text-lg;
+  }
+
+  .divider {
+    @apply h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brandx/60 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-brandx text-white hover:bg-brandx/85;
+  }
+
+  .btn-ghost {
+    @apply btn border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-lg bg-white/5;
+  }
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/10 to-transparent;
+  }
+}
+
+@layer utilities {
+  .text-bull {
+    color: #16c784;
+  }
+  .text-bear {
+    color: #ea3943;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "name": "aasaham",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AASaham - Platform analisis saham IDX: berita, fundamental, teknikal, momentum/story validation, dan rekomendasi AI Council.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.0",
+    "next": "15.5.25",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.39",
+    "tailwindcss": "^3.4.6",
+    "typescript": "^5.5.3"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}

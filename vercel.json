@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "regions": ["sin1"],
+  "functions": {
+    "app/api/analysis/[ticker]/route.ts": { "maxDuration": 60 },
+    "app/api/council/route.ts": { "maxDuration": 120 }
+  }
+}
