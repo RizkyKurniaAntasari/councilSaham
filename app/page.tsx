@@ -4,6 +4,11 @@ import { IDX_INDEX, POPULAR_TICKERS } from "@/data/idx-tickers";
 
 const FEATURES = [
   {
+    icon: "📡",
+    title: "Radar Pasar: Trending & 4 Siklus",
+    body: "Pindai seluruh emiten sekaligus: saham yang sedang trending, saham di tahap akumulasi, pemetaan siklus Akumulasi → Mark Up → Distribusi → Mark Down, plus rekomendasi berbasis data lengkap dengan entry, stop loss, dan target.",
+  },
+  {
     icon: "🔍",
     title: "Validasi Story & Momentum",
     body: "Fitur inti. Narasi yang beredar di berita tidak ditelan mentah — tiap story diuji lewat 9 pemeriksaan silang ke data harga, volume, dan laporan keuangan, lalu diberi vonis: tervalidasi, sebagian valid, lemah, atau mencurigakan.",
@@ -81,6 +86,12 @@ export default function HomePage() {
           <SearchBar size="lg" autoFocus />
         </div>
 
+        <div className="mt-5">
+          <Link href="/pasar" className="btn-ghost">
+            📡 Buka Radar Pasar — saham trending, akumulasi & 4 siklus
+          </Link>
+        </div>
+
         <div className="mx-auto mt-5 flex max-w-3xl flex-wrap items-center justify-center gap-2">
           <span className="text-xs text-slate-500">Coba:</span>
           {POPULAR_TICKERS.slice(0, 8).map((t) => (
@@ -99,7 +110,7 @@ export default function HomePage() {
       {/* Fitur */}
       <section>
         <h2 className="text-center text-2xl font-bold tracking-tight text-white">
-          Enam lapis analisis dalam satu halaman
+          Tujuh lapis analisis, dari satu emiten sampai seluruh pasar
         </h2>
         <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-slate-400">
           Setiap lapisan menghasilkan skor 0–100 yang bisa ditelusuri alasannya — tidak ada angka yang muncul

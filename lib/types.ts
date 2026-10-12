@@ -289,7 +289,95 @@ export interface AnalysisResult {
   technical: TechnicalReport;
   news: NewsReport;
   momentum: MomentumReport;
+  cycle: CycleReport;
+  dataRec: DataRecommendation;
   council: CouncilVerdict;
   ai?: CouncilAI;
   dataQuality: { sources: string[]; warnings: string[]; completeness: number };
+}
+
+/* ------------------------------------------------------------------ */
+/* Siklus saham (Wyckoff) & rekomendasi berbasis data                   */
+/* ------------------------------------------------------------------ */
+
+export type CyclePhase = "AKUMULASI" | "MARKUP" | "DISTRIBUSI" | "MARKDOWN";
+
+export interface CycleEvidence {
+  label: string;
+  value: string;
+  /** Fase yang didukung oleh bukti ini (null = netral). */
+  supports: CyclePhase | null;
+}
+
+export interface CycleReport {
+  available: boolean;
+  phase: CyclePhase;
+  label: string;
+  stage: string;
+  confidence: number; // 0-100
+  /** Probabilitas relatif tiap fase, total 100. */
+  scores: Record<CyclePhase, number>;
+  daysInPhase: number;
+  range: { high: number; low: number; widthPct: number };
+  metrics: {
+    ma50Slope: number | null;
+    cmf: number | null;
+    upDownVolume: number | null;
+    position52w: number | null;
+    priorTrend: number | null;
+    adx: number | null;
+  };
+  evidence: CycleEvidence[];
+  next: { phase: CyclePhase; trigger: string; invalidation: string };
+  timeline: { t: number; phase: CyclePhase; price: number }[];
+  summary: string;
+}
+
+export type RecAction = "BELI" | "BELI_BERTAHAP" | "PANTAU" | "AMBIL_UNTUNG" | "HINDARI";
+
+export interface DataRecommendation {
+  action: RecAction;
+  label: string;
+  score: number; // 0-100
+  horizon: string;
+  entry: { low: number; high: number } | null;
+  stopLoss: number | null;
+  target1: number | null;
+  target2: number | null;
+  riskReward: number | null;
+  reasons: string[];
+  warnings: string[];
+}
+
+export interface ScreenerRow {
+  ticker: string;
+  name: string;
+  sector: string;
+  price: number;
+  change1d: number;
+  return5d: number | null;
+  return20d: number | null;
+  return60d: number | null;
+  volRatio: number; // volume hari terakhir / rata-rata 20 hari
+  volSurge5d: number; // rata-rata volume 5 hari / rata-rata 60 hari
+  avgValue20: number; // nilai transaksi rata-rata 20 hari (Rp)
+  valueToday: number;
+  rsi: number | null;
+  trendingScore: number; // 0-100
+  trendingReasons: string[];
+  /** Skor trending khusus saham yang naik (0 = tidak sedang naik). */
+  upTrendingScore: number;
+  upTrendingReasons: string[];
+  accumulationScore: number; // 0-100
+  cycle: Pick<CycleReport, "phase" | "label" | "stage" | "confidence" | "scores" | "daysInPhase" | "range" | "summary">;
+  rec: DataRecommendation;
+  spark: number[];
+}
+
+export interface ScreenerResult {
+  generatedAt: number;
+  universe: number;
+  scanned: number;
+  failed: string[];
+  rows: ScreenerRow[];
 }

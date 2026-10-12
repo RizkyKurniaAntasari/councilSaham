@@ -9,6 +9,22 @@ Aplikasi Next.js untuk menganalisis emiten Bursa Efek Indonesia. Cari satu kode 
 - **Kepemilikan & manajemen** — pemegang saham besar, porsi institusi/insider, transaksi orang dalam, direksi & komisaris
 - **Deteksi momentum & validasi story** — fitur inti
 - **Rekomendasi Dewan Analis** — 7 sudut pandang, digabung dengan bobot, lengkap dengan rencana aksi
+- **Siklus saham (Wyckoff)** — posisi emiten dalam 4 siklus: Akumulasi, Mark Up, Distribusi, Mark Down
+- **Radar Pasar** (`/pasar`) — saham trending, saham di tahap akumulasi, peta 4 siklus, dan rekomendasi berbasis data untuk seluruh daftar emiten
+
+## Radar Pasar & 4 Siklus Saham
+
+Halaman `/pasar` memindai OHLCV 1 tahun seluruh emiten di `data/idx-tickers.ts` (hasil di-cache 10 menit), lalu menyajikan:
+
+| Tab | Isi |
+|-----|-----|
+| 🎯 Rekomendasi | Peringkat aksi (Beli, Beli Bertahap, Pantau, Ambil Untung, Hindari) + area entry, stop loss, target, risk/reward |
+| 🚀 Trending Naik | Khusus saham yang naik: kenaikan 1–20 hari, volume yang didominasi hari naik (bukan volume jual), breakout 20 hari, penutupan kuat; RSI > 80 diberi penalti |
+| 🔥 Trending (Semua) | Lonjakan volume 5 hari vs 3 bulan, nilai transaksi, gerak harga 1 & 5 hari, breakout 20 hari |
+| 🧲 Tahap Akumulasi | Emiten berfase Akumulasi diurutkan menurut skor akumulasi (probabilitas fase + Chaikin Money Flow + rasio volume naik/turun) |
+| 🔄 4 Siklus | Papan kanban seluruh emiten per fase |
+
+Deteksi fase (`lib/cycle.ts`) menilai tiap fase dari struktur tren (harga vs MA50/MA200, kemiringan MA50, higher high/lower low), konteks tren sebelumnya, aliran dana (CMF 40 hari, volume hari naik vs turun), ADX, dan posisi dalam rentang 52 minggu. Skor dinormalisasi jadi probabilitas, dilengkapi sub-tahap (mis. *Spring*, *Sign of Strength*, *Upthrust*, *Kapitulasi*), lama fase, riwayat fase ±1 tahun, serta pemicu & pembatal menuju fase berikutnya. Rekomendasi (`lib/recommend.ts`) menggabungkan fase tersebut dengan momentum, konfirmasi volume, dan likuiditas. Panel yang sama juga muncul di halaman analisis tiap emiten.
 
 ## Fitur inti: validasi story & momentum
 

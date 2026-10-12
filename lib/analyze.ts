@@ -1,9 +1,11 @@
 import { IDX_INDEX } from "../data/idx-tickers";
 import { buildOwnership, buildProfile, buildQuote } from "./company";
 import { buildCouncil } from "./council";
+import { buildCycle } from "./cycle";
 import { buildFundamental } from "./fundamental";
 import { llmEnabled, mergeAiNarrative, synthesizeCouncil } from "./llm";
 import { fetchNews } from "./news";
+import { buildRecommendation } from "./recommend";
 import { buildMomentum } from "./story";
 import { buildTechnical } from "./technical";
 import type { AnalysisResult, NewsReport } from "./types";
@@ -64,6 +66,15 @@ export async function analyze(
   }
 
   const momentum = buildMomentum(candles, technical, news, fundamental);
+  const cycle = buildCycle(candles);
+  const avgValue20 =
+    candles.slice(-20).reduce((acc, c) => acc + c.c * c.v, 0) / Math.max(1, Math.min(20, candles.length));
+  const dataRec = buildRecommendation(cycle, technical.indicators, {
+    price: quote.price || candles[candles.length - 1].c,
+    avgValue20,
+    supports: technical.supports,
+    resistances: technical.resistances,
+  });
   let council = buildCouncil(fundamental, technical, news, momentum, quote);
 
   const sources: string[] = ["Yahoo Finance (harga & OHLCV)"];
@@ -92,6 +103,8 @@ export async function analyze(
     technical,
     news,
     momentum,
+    cycle,
+    dataRec,
     council,
     dataQuality: { sources, warnings, completeness },
   };
