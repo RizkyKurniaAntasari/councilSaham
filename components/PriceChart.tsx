@@ -215,6 +215,32 @@ export default function PriceChart({
     );
   };
 
+  // Label sumbu kanan: harga terakhir + nilai MA (mengikuti candle yang ditunjuk).
+  // Disusun ulang agar tidak saling menimpa.
+  const ma20Val = view.ma20[activeIdx] ?? null;
+  const ma50Val = view.ma50[activeIdx] ?? null;
+  const axisTags = (() => {
+    const list: { y: number; text: string; fill: string; textFill: string }[] = [];
+    if (lastCandle) {
+      const lc = data.length > 1 && lastCandle.c >= data[lastIdx - 1].c ? BULL : BEAR;
+      list.push({ y: view.y(lastCandle.c), text: fmtPrice(lastCandle.c), fill: lc, textFill: "#fff" });
+    }
+    if (showMa20 && ma20Val !== null) list.push({ y: view.y(ma20Val), text: fmtPrice(ma20Val), fill: MA20_COLOR, textFill: "#0b1020" });
+    if (showMa50 && ma50Val !== null) list.push({ y: view.y(ma50Val), text: fmtPrice(ma50Val), fill: MA50_COLOR, textFill: "#0b1020" });
+    const minGap = 19;
+    const lo = TOP + 9;
+    const hi = TOP + PRICE_H - 9;
+    list.sort((a, b) => a.y - b.y);
+    for (let i = 0; i < list.length; i++) {
+      list[i].y = Math.max(lo, Math.min(hi, list[i].y));
+      if (i > 0 && list[i].y - list[i - 1].y < minGap) list[i].y = list[i - 1].y + minGap;
+    }
+    // Bila mentok di bawah, geser seluruh tumpukan ke atas.
+    const overflow = list.length ? list[list.length - 1].y - hi : 0;
+    if (overflow > 0) list.forEach((t) => (t.y -= overflow));
+    return list;
+  })();
+
   const hy = hover ? hover.y : null;
   const inPrice = hy !== null && hy >= TOP && hy <= TOP + PRICE_H;
   const lastColor = lastCandle && data.length > 1 && lastCandle.c >= data[lastIdx - 1].c ? BULL : BEAR;
@@ -289,11 +315,23 @@ export default function PriceChart({
           <span className="text-slate-500">
             Vol <span className="text-slate-200">{fmtCompact(active.v, "")}</span>
           </span>
-          {showMa20 && view.ma20[activeIdx] !== null && (
-            <span style={{ color: MA20_COLOR }}>MA20 {fmtPrice(view.ma20[activeIdx] as number)}</span>
+          {showMa20 && (
+            <span className="inline-flex items-center gap-1.5 text-slate-500">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: MA20_COLOR }} />
+              MA20{" "}
+              <span className="font-semibold" style={{ color: MA20_COLOR }}>
+                {ma20Val !== null ? fmtPrice(ma20Val) : "—"}
+              </span>
+            </span>
           )}
-          {showMa50 && view.ma50[activeIdx] !== null && (
-            <span style={{ color: MA50_COLOR }}>MA50 {fmtPrice(view.ma50[activeIdx] as number)}</span>
+          {showMa50 && (
+            <span className="inline-flex items-center gap-1.5 text-slate-500">
+              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: MA50_COLOR }} />
+              MA50{" "}
+              <span className="font-semibold" style={{ color: MA50_COLOR }}>
+                {ma50Val !== null ? fmtPrice(ma50Val) : "—"}
+              </span>
+            </span>
           )}
         </div>
       )}
@@ -301,10 +339,10 @@ export default function PriceChart({
       {/* Toggle overlay */}
       <div className="mb-2 flex flex-wrap gap-1.5">
         <Toggle on={showMa20} onClick={() => setShowMa20((v) => !v)} color={MA20_COLOR}>
-          MA20
+          MA20{ma20Val !== null && <span className="tabular" style={{ color: showMa20 ? MA20_COLOR : undefined }}>{fmtPrice(ma20Val)}</span>}
         </Toggle>
         <Toggle on={showMa50} onClick={() => setShowMa50((v) => !v)} color={MA50_COLOR}>
-          MA50
+          MA50{ma50Val !== null && <span className="tabular" style={{ color: showMa50 ? MA50_COLOR : undefined }}>{fmtPrice(ma50Val)}</span>}
         </Toggle>
         <Toggle on={showLevels} onClick={() => setShowLevels((v) => !v)}>
           <span className="text-bull">S</span>/<span className="text-bear">R</span> Support &amp; Resistance
@@ -482,9 +520,11 @@ export default function PriceChart({
                   strokeOpacity="0.5"
                   strokeDasharray="2 3"
                 />
-                {tag(view.y(lastCandle.c), fmtPrice(lastCandle.c), lastColor)}
               </>
             )}
+            {axisTags.map((t) => (
+              <g key={`${t.fill}-${t.text}`}>{tag(t.y, t.text, t.fill, t.textFill)}</g>
+            ))}
 
             {/* Crosshair */}
             {hover && active && (
