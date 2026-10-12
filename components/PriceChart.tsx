@@ -41,6 +41,11 @@ function fmtPrice(v: number): string {
   return v >= 1000 ? fmtInt(Math.round(v)) : v.toLocaleString("id-ID", { maximumFractionDigits: 2 });
 }
 
+/** Lebar kotak label S/R mengikuti panjang teksnya (font 10px). */
+function levelLabelW(text: string): number {
+  return 8 + text.length * 6;
+}
+
 function fmtTick(ts: number, long: boolean): string {
   return new Date(ts).toLocaleDateString(
     "id-ID",
@@ -104,7 +109,10 @@ export default function PriceChart({
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => setWidth(Math.floor(entry.contentRect.width)));
     ro.observe(el);
-    setWidth(Math.floor(el.getBoundingClientRect().width));
+    const w = Math.floor(el.getBoundingClientRect().width);
+    setWidth(w);
+    // Di layar sempit 6 bulan terlalu padat — mulai dari 3 bulan.
+    if (w < 640) setRangeKey("3B");
     return () => ro.disconnect();
   }, []);
 
@@ -160,7 +168,7 @@ export default function PriceChart({
     const areaPath =
       data.length > 1 ? `${closePath}L${x(data.length - 1).toFixed(1)},${TOP + PRICE_H}L${x(0).toFixed(1)},${TOP + PRICE_H}Z` : "";
 
-    const gridValues = niceTicks(min, max, PRICE_H > 260 ? 6 : 4);
+    const gridValues = niceTicks(min, max, PRICE_H > 260 ? 6 : 5);
     const tickCount = Math.max(2, Math.min(8, Math.floor(innerW / 95)));
     const tickIdx = Array.from({ length: tickCount }, (_, k) =>
       Math.round(((k + 0.5) * (data.length - 1)) / tickCount),
@@ -418,9 +426,16 @@ export default function PriceChart({
                         strokeOpacity="0.55"
                         strokeDasharray="6 5"
                       />
-                      <rect x={PAD_L + 2} y={view.y(r) - 17} width={74} height={15} rx={3} fill="rgba(234,57,67,0.15)" />
-                      <text x={PAD_L + 7} y={view.y(r) - 6} fill={BEAR} fontSize="10" fontWeight="600">
-                        R{i + 1} · {fmtPrice(r)}
+                      <rect
+                        x={PAD_L + 2}
+                        y={view.y(r) - 17}
+                        width={levelLabelW(`R${i + 1} ${fmtPrice(r)}`)}
+                        height={15}
+                        rx={3}
+                        fill="rgba(234,57,67,0.15)"
+                      />
+                      <text x={PAD_L + 6} y={view.y(r) - 6} fill={BEAR} fontSize="10" fontWeight="600">
+                        R{i + 1} {fmtPrice(r)}
                       </text>
                     </g>
                   ) : null,
@@ -437,9 +452,16 @@ export default function PriceChart({
                         strokeOpacity="0.55"
                         strokeDasharray="6 5"
                       />
-                      <rect x={PAD_L + 2} y={view.y(s) + 2} width={74} height={15} rx={3} fill="rgba(22,199,132,0.15)" />
-                      <text x={PAD_L + 7} y={view.y(s) + 13} fill={BULL} fontSize="10" fontWeight="600">
-                        S{i + 1} · {fmtPrice(s)}
+                      <rect
+                        x={PAD_L + 2}
+                        y={view.y(s) + 2}
+                        width={levelLabelW(`S${i + 1} ${fmtPrice(s)}`)}
+                        height={15}
+                        rx={3}
+                        fill="rgba(22,199,132,0.15)"
+                      />
+                      <text x={PAD_L + 6} y={view.y(s) + 13} fill={BULL} fontSize="10" fontWeight="600">
+                        S{i + 1} {fmtPrice(s)}
                       </text>
                     </g>
                   ) : null,

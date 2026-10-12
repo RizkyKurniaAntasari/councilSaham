@@ -103,11 +103,11 @@ export default function FundamentalPanel({ f }: { f: FundamentalReport }) {
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-bull/20 bg-bull/6 p-5">
+        <div className="rounded-2xl border border-bull/20 bg-bull/6 p-4 sm:p-5">
           <h3 className="mb-3 text-sm font-semibold text-bull">Kekuatan fundamental</h3>
           <BulletList items={f.highlights} tone="bull" empty="Tidak ada metrik yang menonjol kuat." />
         </div>
-        <div className="rounded-2xl border border-bear/20 bg-bear/6 p-5">
+        <div className="rounded-2xl border border-bear/20 bg-bear/6 p-4 sm:p-5">
           <h3 className="mb-3 text-sm font-semibold text-bear">Kelemahan fundamental</h3>
           <BulletList items={f.risks} tone="bear" empty="Tidak ada metrik yang berada di zona bahaya." />
         </div>

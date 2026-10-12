@@ -44,7 +44,7 @@ body {
   }
 
   .card-pad {
-    @apply p-5 sm:p-6;
+    @apply p-4 sm:p-6;
   }
 
   .section-title {
@@ -98,6 +98,12 @@ body {
   }
   .text-bear {
     color: #ea3943;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
   .tabular {
     font-variant-numeric: tabular-nums;

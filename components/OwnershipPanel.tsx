@@ -25,7 +25,7 @@ export default function OwnershipPanel({ o, p }: { o: Ownership; p: Profile }) {
 
       <div className="mt-5 grid gap-5 lg:grid-cols-2">
         {/* Pemegang saham */}
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
           <h3 className="mb-3 text-sm font-semibold text-white">Pemegang saham terbesar</h3>
           {hasHolders ? (
             <div className="overflow-x-auto">
@@ -34,17 +34,17 @@ export default function OwnershipPanel({ o, p }: { o: Ownership; p: Profile }) {
                   <tr className="border-b border-white/10 text-left text-[11px] uppercase tracking-wider text-slate-500">
                     <th className="pb-2 font-medium">Nama</th>
                     <th className="pb-2 text-right font-medium">Lembar</th>
-                    <th className="pb-2 text-right font-medium">%</th>
+                    <th className="pb-2 pl-3 text-right font-medium">%</th>
                   </tr>
                 </thead>
                 <tbody>
                   {o.topHolders.map((h, i) => (
                     <tr key={i} className="border-b border-white/5 last:border-0">
-                      <td className="py-2.5 pr-3 text-slate-200">{h.name}</td>
-                      <td className="py-2.5 text-right tabular text-slate-300">
+                      <td className="break-words py-2.5 pr-2 text-[13px] leading-snug text-slate-200 sm:text-sm">{h.name}</td>
+                      <td className="whitespace-nowrap py-2.5 pl-2 text-right tabular text-slate-300">
                         {h.shares !== undefined ? fmtCompact(h.shares, "") : "—"}
                       </td>
-                      <td className="py-2.5 text-right tabular text-slate-300">
+                      <td className="whitespace-nowrap py-2.5 pl-3 text-right tabular text-slate-300">
                         {h.pct !== undefined ? fmtPctPlain(h.pct, 2) : "—"}
                       </td>
                     </tr>
@@ -61,7 +61,7 @@ export default function OwnershipPanel({ o, p }: { o: Ownership; p: Profile }) {
         </div>
 
         {/* Manajemen */}
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
           <h3 className="mb-3 text-sm font-semibold text-white">Direksi & Komisaris</h3>
           {p.officers.length ? (
             <ul className="space-y-2.5">
@@ -93,13 +93,28 @@ export default function OwnershipPanel({ o, p }: { o: Ownership; p: Profile }) {
       </div>
 
       {hasTransactions && (
-        <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+        <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
           <h3 className="mb-1 text-sm font-semibold text-white">Transaksi orang dalam</h3>
           <p className="muted mb-3">
             Pembelian oleh pihak internal sering menjadi sinyal keyakinan; penjualan besar patut ditelusuri
             alasannya.
           </p>
-          <div className="overflow-x-auto">
+          <ul className="divide-y divide-white/5 sm:hidden">
+            {o.insiderTransactions.map((t, i) => (
+              <li key={i} className="py-2.5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="min-w-0 text-sm font-medium text-slate-200">{t.name}</p>
+                  <p className="shrink-0 text-sm tabular text-slate-300">
+                    {t.shares !== undefined ? fmtInt(t.shares) : "—"}
+                  </p>
+                </div>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {[t.relation, t.action, t.date ? fmtDate(Date.parse(t.date)) : undefined].filter(Boolean).join(" · ") || "—"}
+                </p>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[520px] text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-left text-[11px] uppercase tracking-wider text-slate-500">
@@ -132,7 +147,7 @@ export default function OwnershipPanel({ o, p }: { o: Ownership; p: Profile }) {
 
       {/* Profil perusahaan */}
       {(p.summary || p.website || p.address) && (
-        <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+        <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
           <h3 className="mb-3 text-sm font-semibold text-white">Tentang perusahaan</h3>
           {p.summary && <p className="text-sm leading-relaxed text-slate-300">{p.summary}</p>}
           <div className="mt-4 flex flex-wrap gap-2 text-xs">

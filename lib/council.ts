@@ -109,7 +109,7 @@ export function buildCouncil(
       emoji: "📈",
       score,
       stance: stanceOf(score),
-      confidence: technical.available ? clamp(55 + (ind.adx14 ?? 20)) : 20,
+      confidence: technical.available ? Math.round(clamp(55 + (ind.adx14 ?? 20))) : 20,
       weight: technical.available ? 1.4 : 0.4,
       rationale,
       concerns,

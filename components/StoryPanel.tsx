@@ -90,7 +90,7 @@ function StoryCard({ s, aiNote }: { s: Story; aiNote?: string }) {
 
   return (
     <div
-      className={`rounded-2xl border p-5 transition ${
+      className={`rounded-2xl border p-4 sm:p-5 transition ${
         s.verdict === "MENCURIGAKAN"
           ? "border-bear/35 bg-bear/6"
           : s.verdict === "TERVALIDASI"
@@ -208,7 +208,7 @@ export default function StoryPanel({
         </Badge>
       }
     >
-      <div className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:grid-cols-3">
+      <div className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5 sm:grid-cols-3">
         <ScoreBar label="Momentum harga" score={momentum.priceMomentum} />
         <ScoreBar label="Momentum volume" score={momentum.volumeMomentum} />
         <ScoreBar label="Momentum pemberitaan" score={momentum.newsMomentum} />
@@ -219,7 +219,7 @@ export default function StoryPanel({
       {(momentum.flags.length > 0 || momentum.divergence.length > 0) && (
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
           {momentum.flags.length > 0 && (
-            <div className="rounded-2xl border border-bear/25 bg-bear/6 p-5">
+            <div className="rounded-2xl border border-bear/25 bg-bear/6 p-4 sm:p-5">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-bear">
                 🚩 Anomali terdeteksi
               </h3>
@@ -227,7 +227,7 @@ export default function StoryPanel({
             </div>
           )}
           {momentum.divergence.length > 0 && (
-            <div className="rounded-2xl border border-warn/25 bg-warn/6 p-5">
+            <div className="rounded-2xl border border-warn/25 bg-warn/6 p-4 sm:p-5">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-warn">
                 ↔️ Divergensi sinyal
               </h3>

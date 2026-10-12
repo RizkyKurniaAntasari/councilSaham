@@ -87,7 +87,7 @@ export default function TechnicalPanel({ t }: { t: TechnicalReport }) {
 
       {/* Level perdagangan */}
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
           <h3 className="mb-3 text-sm font-semibold text-white">Level kunci</h3>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -142,9 +142,9 @@ export default function TechnicalPanel({ t }: { t: TechnicalReport }) {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
           <h3 className="mb-3 text-sm font-semibold text-white">Nilai indikator</h3>
-          <dl className="grid grid-cols-2 gap-x-5 gap-y-2.5 text-sm">
+          <dl className="grid gap-x-5 gap-y-2.5 text-sm min-[420px]:grid-cols-2">
             {rows.map((r) => (
               <div key={r.label} className="flex items-baseline justify-between gap-2 border-b border-white/5 pb-1.5">
                 <dt className="text-xs text-slate-400">{r.label}</dt>
@@ -158,7 +158,22 @@ export default function TechnicalPanel({ t }: { t: TechnicalReport }) {
       {/* Sinyal */}
       <div className="mt-5">
         <h3 className="mb-3 text-sm font-semibold text-white">Pembacaan sinyal</h3>
-        <div className="overflow-x-auto rounded-2xl border border-white/10">
+        {/* Ponsel: kartu per sinyal */}
+        <ul className="space-y-2 sm:hidden">
+          {t.signals.map((s, i) => (
+            <li key={i} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-slate-100">{s.name}</p>
+                  <p className="mt-0.5 break-words text-xs tabular text-slate-400">{s.value}</p>
+                </div>
+                <Badge tone={signalTone(s.signal)}>{s.signal}</Badge>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-slate-400">{s.note}</p>
+            </li>
+          ))}
+        </ul>
+        <div className="hidden overflow-x-auto rounded-2xl border border-white/10 sm:block">
           <table className="w-full min-w-[560px] text-sm">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.03] text-left text-xs uppercase tracking-wider text-slate-500">
@@ -185,11 +200,11 @@ export default function TechnicalPanel({ t }: { t: TechnicalReport }) {
       </div>
 
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-bull/20 bg-bull/6 p-5">
+        <div className="rounded-2xl border border-bull/20 bg-bull/6 p-4 sm:p-5">
           <h3 className="mb-3 text-sm font-semibold text-bull">Sinyal positif</h3>
           <BulletList items={t.highlights} tone="bull" empty="Tidak ada sinyal teknikal positif yang menonjol." />
         </div>
-        <div className="rounded-2xl border border-bear/20 bg-bear/6 p-5">
+        <div className="rounded-2xl border border-bear/20 bg-bear/6 p-4 sm:p-5">
           <h3 className="mb-3 text-sm font-semibold text-bear">Sinyal negatif</h3>
           <BulletList items={t.risks} tone="bear" empty="Tidak ada sinyal teknikal negatif yang menonjol." />
         </div>

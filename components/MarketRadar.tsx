@@ -114,7 +114,7 @@ function Empty() {
 function RecommendationTable({ rows }: { rows: ScreenerRow[] }) {
   if (!rows.length) return <Empty />;
   return (
-    <div className="overflow-x-auto">
+    <div className="hidden overflow-x-auto md:block">
       <table className="w-full min-w-[1080px]">
         <thead className="border-b border-white/10">
           <tr>
@@ -173,7 +173,7 @@ function RecommendationTable({ rows }: { rows: ScreenerRow[] }) {
 function TrendingTable({ rows, up }: { rows: ScreenerRow[]; up?: boolean }) {
   if (!rows.length) return <Empty />;
   return (
-    <div className="overflow-x-auto">
+    <div className="hidden overflow-x-auto md:block">
       <table className="w-full min-w-[1080px]">
         <thead className="border-b border-white/10">
           <tr>
@@ -234,7 +234,7 @@ function TrendingTable({ rows, up }: { rows: ScreenerRow[]; up?: boolean }) {
 function AccumulationTable({ rows }: { rows: ScreenerRow[] }) {
   if (!rows.length) return <Empty />;
   return (
-    <div className="overflow-x-auto">
+    <div className="hidden overflow-x-auto md:block">
       <table className="w-full min-w-[1080px]">
         <thead className="border-b border-white/10">
           <tr>
@@ -288,9 +288,128 @@ function AccumulationTable({ rows }: { rows: ScreenerRow[] }) {
   );
 }
 
+type MobileKind = "rec" | "trend" | "trendUp" | "acc";
+
+function MiniStat({ label, children, className = "" }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] uppercase tracking-wider text-slate-500">{label}</p>
+      <p className={`mt-0.5 truncate text-xs font-semibold tabular text-slate-200 ${className}`}>{children}</p>
+    </div>
+  );
+}
+
+/** Versi kartu dari tabel untuk layar ponsel. */
+function MobileList({ rows, kind }: { rows: ScreenerRow[]; kind: MobileKind }) {
+  if (!rows.length) {
+    return (
+      <div className="md:hidden">
+        <Empty />
+      </div>
+    );
+  }
+  return (
+    <ul className="divide-y divide-white/5 md:hidden">
+      {rows.map((r, i) => {
+        const score =
+          kind === "rec"
+            ? r.rec.score
+            : kind === "trend"
+              ? r.trendingScore
+              : kind === "trendUp"
+                ? r.upTrendingScore
+                : r.accumulationScore;
+        const reason =
+          kind === "rec"
+            ? r.rec.reasons[1] ?? r.rec.reasons[0]
+            : kind === "trend"
+              ? r.trendingReasons.slice(0, 2).join(" · ")
+              : kind === "trendUp"
+                ? r.upTrendingReasons.slice(0, 2).join(" · ")
+                : r.cycle.stage;
+        return (
+          <li key={r.ticker}>
+            <Link href={`/saham/${r.ticker}`} className="block px-4 py-3.5 transition active:bg-white/[0.05]">
+              <div className="flex items-center gap-3">
+                <span className="w-5 shrink-0 text-xs tabular text-slate-500">{i + 1}</span>
+                <span className="grid h-9 w-14 shrink-0 place-items-center rounded-lg bg-brandx/15 text-xs font-bold tracking-wide text-brandx">
+                  {r.ticker}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-slate-100">{r.name}</span>
+                  <span className="block text-[11px] tabular text-slate-500">
+                    {fmtNumber(r.price, 0)} · <Pct v={r.change1d} />
+                  </span>
+                </span>
+                <ScorePill score={score} />
+              </div>
+
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5 pl-8">
+                {(kind === "rec" || kind === "acc") && <RecBadge action={r.rec.action} small />}
+                <PhaseBadge phase={r.cycle.phase} small />
+                {kind !== "rec" && (
+                  <span className="ml-auto">
+                    <Sparkline values={r.spark} width={84} height={22} />
+                  </span>
+                )}
+              </div>
+
+              <div
+                className={`mt-2.5 grid gap-2 pl-8 ${kind === "rec" ? "grid-cols-[1.6fr_1fr_1fr_0.6fr]" : "grid-cols-4"}`}
+              >
+                {kind === "rec" ? (
+                  <>
+                    <MiniStat label="Entry">
+                      {r.rec.entry ? `${fmtNumber(r.rec.entry.low, 0)}–${fmtNumber(r.rec.entry.high, 0)}` : "—"}
+                    </MiniStat>
+                    <MiniStat label="Stop" className="text-bear">
+                      {r.rec.stopLoss ? fmtNumber(r.rec.stopLoss, 0) : "—"}
+                    </MiniStat>
+                    <MiniStat label="Target" className="text-bull">
+                      {r.rec.target1 ? fmtNumber(r.rec.target1, 0) : "—"}
+                    </MiniStat>
+                    <MiniStat label="R/R">{r.rec.riskReward !== null ? fmtNumber(r.rec.riskReward, 1) : "—"}</MiniStat>
+                  </>
+                ) : kind === "acc" ? (
+                  <>
+                    <MiniStat label="Lama">±{r.cycle.daysInPhase}H</MiniStat>
+                    <MiniStat label="Bawah">{fmtNumber(r.cycle.range.low, 0)}</MiniStat>
+                    <MiniStat label="Atas">{fmtNumber(r.cycle.range.high, 0)}</MiniStat>
+                    <MiniStat label="20 hari">
+                      <Pct v={r.return20d} />
+                    </MiniStat>
+                  </>
+                ) : (
+                  <>
+                    <MiniStat label="5 hari">
+                      <Pct v={r.return5d} />
+                    </MiniStat>
+                    <MiniStat label="20 hari">
+                      <Pct v={r.return20d} />
+                    </MiniStat>
+                    <MiniStat label="Vol 5H" className={r.volSurge5d >= 1.8 ? "text-warn" : ""}>
+                      {fmtNumber(r.volSurge5d, 1)}x
+                    </MiniStat>
+                    <MiniStat label="Nilai">{fmtCompact(r.valueToday, "")}</MiniStat>
+                  </>
+                )}
+              </div>
+
+              {reason && <p className="mt-2 pl-8 text-[11px] leading-snug text-slate-400">{reason}</p>}
+              {kind === "rec" && r.rec.warnings[0] && (
+                <p className="mt-1 pl-8 text-[11px] leading-snug text-warn/90">⚠ {r.rec.warnings[0]}</p>
+              )}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function CycleBoard({ rows }: { rows: ScreenerRow[] }) {
   return (
-    <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3 p-3 sm:gap-4 sm:p-4 md:grid-cols-2 xl:grid-cols-4">
       {PHASE_ORDER.map((p, i) => {
         const list = rows.filter((r) => r.cycle.phase === p).sort((a, b) => b.cycle.confidence - a.cycle.confidence);
         const m = PHASE_META[p];
@@ -308,7 +427,7 @@ function CycleBoard({ rows }: { rows: ScreenerRow[] }) {
               </div>
               <p className="mt-1 text-[11px] text-slate-500">{m.short}</p>
             </div>
-            <ul className="max-h-[520px] divide-y divide-white/5 overflow-y-auto">
+            <ul className="max-h-[300px] divide-y md:max-h-[520px] divide-white/5 overflow-y-auto">
               {list.length === 0 && <li className="p-4 text-xs text-slate-500">Tidak ada.</li>}
               {list.map((r) => (
                 <li key={r.ticker}>
@@ -469,7 +588,7 @@ export default function MarketRadar() {
           </p>
         </div>
         {data && (
-          <div className="text-right text-xs text-slate-500">
+          <div className="text-xs text-slate-500 sm:text-right">
             <p>
               {data.scanned} dari {data.universe} emiten dipindai · {fmtDateTime(data.generatedAt)}
             </p>
@@ -510,15 +629,15 @@ export default function MarketRadar() {
           <MarketBreadth rows={filtered} />
 
           {topPicks.length > 0 && (
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0">
               {topPicks.map((r, i) => (
                 <Link
                   key={r.ticker}
                   href={`/saham/${r.ticker}`}
-                  className="card group p-4 transition hover:border-bull/40"
+                  className="card group w-[82%] shrink-0 snap-start p-4 transition hover:border-bull/40 md:w-auto"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-[10px] uppercase tracking-wider text-slate-500">Pilihan data #{i + 1}</p>
                       <p className="mt-1 text-lg font-black tracking-wide text-white">{r.ticker}</p>
                       <p className="truncate text-xs text-slate-400">{r.name}</p>
@@ -552,12 +671,15 @@ export default function MarketRadar() {
           )}
 
           <div className="card overflow-hidden">
-            <div className="flex flex-wrap gap-1 border-b border-white/10 p-2">
+            <div className="no-scrollbar flex gap-1 overflow-x-auto border-b border-white/10 p-2">
               {TABS.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => setTab(t.id)}
-                  className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+                  onClick={(e) => {
+                    setTab(t.id);
+                    e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+                  }}
+                  className={`shrink-0 whitespace-nowrap rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
                     tab === t.id ? "bg-brandx/20 text-brandx" : "text-slate-400 hover:bg-white/5 hover:text-white"
                   }`}
                 >
@@ -566,18 +688,18 @@ export default function MarketRadar() {
               ))}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-4 py-3">
-              <p className="mr-auto max-w-xl text-xs leading-relaxed text-slate-400">{active.desc}</p>
+            <div className="grid grid-cols-2 gap-2 border-b border-white/10 px-4 py-3 sm:flex sm:flex-wrap sm:items-center">
+              <p className="col-span-2 text-xs leading-relaxed text-slate-400 sm:mr-auto sm:max-w-xl">{active.desc}</p>
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Cari kode / nama"
-                className="w-36 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-brandx/50 focus:outline-none"
+                className="col-span-2 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm sm:w-36 sm:px-2.5 sm:py-1.5 sm:text-xs text-slate-200 placeholder:text-slate-500 focus:border-brandx/50 focus:outline-none"
               />
               <select
                 value={sector}
                 onChange={(e) => setSector(e.target.value)}
-                className="rounded-lg border border-white/10 bg-ink-900 px-2.5 py-1.5 text-xs text-slate-200"
+                className="w-full min-w-0 rounded-lg border border-white/10 bg-ink-900 px-2.5 py-2 text-xs text-slate-200 sm:w-auto sm:py-1.5"
               >
                 {sectors.map((s) => (
                   <option key={s}>{s}</option>
@@ -586,7 +708,7 @@ export default function MarketRadar() {
               <select
                 value={minLiq}
                 onChange={(e) => setMinLiq(Number(e.target.value))}
-                className="rounded-lg border border-white/10 bg-ink-900 px-2.5 py-1.5 text-xs text-slate-200"
+                className="w-full min-w-0 rounded-lg border border-white/10 bg-ink-900 px-2.5 py-2 text-xs text-slate-200 sm:w-auto sm:py-1.5"
               >
                 {LIQ_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -598,7 +720,7 @@ export default function MarketRadar() {
                 <select
                   value={recFilter}
                   onChange={(e) => setRecFilter(Number(e.target.value))}
-                  className="rounded-lg border border-white/10 bg-ink-900 px-2.5 py-1.5 text-xs text-slate-200"
+                  className="w-full min-w-0 rounded-lg border border-white/10 bg-ink-900 px-2.5 py-2 text-xs text-slate-200 sm:w-auto sm:py-1.5"
                 >
                   {REC_FILTERS.map((o, i) => (
                     <option key={o.label} value={i}>
@@ -611,7 +733,7 @@ export default function MarketRadar() {
                 <select
                   value={phaseFilter}
                   onChange={(e) => setPhaseFilter(e.target.value as CyclePhase | "SEMUA")}
-                  className="rounded-lg border border-white/10 bg-ink-900 px-2.5 py-1.5 text-xs text-slate-200"
+                  className="w-full min-w-0 rounded-lg border border-white/10 bg-ink-900 px-2.5 py-2 text-xs text-slate-200 sm:w-auto sm:py-1.5"
                 >
                   <option value="SEMUA">Semua fase</option>
                   {PHASE_ORDER.map((p) => (
@@ -623,10 +745,30 @@ export default function MarketRadar() {
               )}
             </div>
 
-            {tab === "rekomendasi" && <RecommendationTable rows={view} />}
-            {tab === "trending-naik" && <TrendingTable rows={view} up />}
-            {tab === "trending" && <TrendingTable rows={view} />}
-            {tab === "akumulasi" && <AccumulationTable rows={view} />}
+            {tab === "rekomendasi" && (
+              <>
+                <MobileList rows={view} kind="rec" />
+                <RecommendationTable rows={view} />
+              </>
+            )}
+            {tab === "trending-naik" && (
+              <>
+                <MobileList rows={view} kind="trendUp" />
+                <TrendingTable rows={view} up />
+              </>
+            )}
+            {tab === "trending" && (
+              <>
+                <MobileList rows={view} kind="trend" />
+                <TrendingTable rows={view} />
+              </>
+            )}
+            {tab === "akumulasi" && (
+              <>
+                <MobileList rows={view} kind="acc" />
+                <AccumulationTable rows={view} />
+              </>
+            )}
             {tab === "siklus" && <CycleBoard rows={view} />}
           </div>
 

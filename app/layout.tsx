@@ -31,30 +31,30 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="id">
       <body className="min-h-screen">
         <header className="sticky top-0 z-40 border-b border-white/10 bg-ink-950/80 backdrop-blur-md">
-          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
-            <Link href="/" className="group flex items-center gap-2.5">
+          <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
+            <Link href="/" className="group flex shrink-0 items-center gap-2.5">
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-brandx to-bull text-sm font-black text-ink-950">
                 AA
               </span>
               <span className="flex flex-col leading-none">
                 <span className="text-base font-bold tracking-tight text-white">AASaham</span>
-                <span className="text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                <span className="hidden text-[10px] uppercase tracking-[0.18em] text-slate-500 min-[400px]:block">
                   Analisis Saham IDX
                 </span>
               </span>
             </Link>
-            <nav className="flex items-center gap-1 text-sm">
+            <nav className="flex items-center gap-1 whitespace-nowrap text-sm">
               <Link
                 href="/"
-                className="rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/5 hover:text-white"
+                className="hidden rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/5 hover:text-white sm:inline-block"
               >
                 Beranda
               </Link>
               <Link
                 href="/pasar"
-                className="rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/5 hover:text-white"
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-medium text-slate-200 transition hover:bg-white/10 hover:text-white sm:border-transparent sm:bg-transparent sm:font-normal sm:text-slate-300"
               >
-                Radar Pasar
+                📡 Radar Pasar
               </Link>
               <Link
                 href="/saham/ADMR"

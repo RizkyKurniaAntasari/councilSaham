@@ -38,7 +38,7 @@ export default function NewsPanel({ news, ticker }: { news: NewsReport; ticker: 
         <Stat label="Intensitas" value={news.buzz.buzzLevel} />
       </div>
 
-      <div className="mt-4 grid gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:grid-cols-3">
+      <div className="mt-4 grid gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5 sm:grid-cols-3">
         <ScoreBar
           label="Berita positif"
           score={news.counts.total ? (news.counts.positive / news.counts.total) * 100 : 0}

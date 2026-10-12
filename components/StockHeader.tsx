@@ -12,23 +12,46 @@ export default function StockHeader({ a }: { a: AnalysisResult }) {
 
   return (
     <section className="card card-pad animate-fade-up">
-      <div className="flex flex-wrap items-start justify-between gap-6">
-        <div className="min-w-0 flex-1">
+      {/* Ponsel: identitas → skor → harga & statistik. Desktop: skor di kolom kanan. */}
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-x-6">
+        <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2.5">
-            <span className="rounded-xl bg-brandx/15 px-3 py-1.5 text-lg font-black tracking-wider text-brandx">
+            <span className="rounded-xl bg-brandx/15 px-3 py-1.5 text-base font-black tracking-wider text-brandx sm:text-lg">
               {a.ticker}
             </span>
-            <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">{a.profile.name}</h1>
+            <h1 className="min-w-0 text-lg font-bold leading-snug tracking-tight text-white sm:text-2xl">
+              {a.profile.name}
+            </h1>
           </div>
 
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 sm:gap-2">
             {a.profile.sector && <span className="chip">🏭 {a.profile.sector}</span>}
             {a.profile.industry && <span className="chip">{a.profile.industry}</span>}
             <span className="chip">{q.exchange ?? "IDX"}</span>
             {q.marketState && <span className="chip">Pasar: {q.marketState}</span>}
           </div>
+        </div>
 
-          <div className="mt-5 flex flex-wrap items-end gap-4">
+        <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:flex-col lg:justify-center lg:gap-3 lg:px-6 lg:py-5">
+          <div className="lg:hidden">
+            <ScoreRing score={a.council.score} size={88} sublabel="skor" />
+          </div>
+          <div className="hidden lg:block">
+            <ScoreRing score={a.council.score} size={132} sublabel="skor dewan" />
+          </div>
+          <div className="min-w-0 space-y-2 lg:text-center">
+            <p className="stat-label lg:hidden">Skor Dewan Analis</p>
+            <Badge tone={a.council.score >= 63 ? "bull" : a.council.score >= 45 ? "warn" : "bear"}>
+              {a.council.label}
+            </Badge>
+            <p className="text-[11px] leading-snug text-slate-500">
+              Keyakinan {a.council.confidence}% · kelengkapan data {a.dataQuality.completeness}%
+            </p>
+          </div>
+        </div>
+
+        <div className="min-w-0 lg:col-start-1 lg:row-start-2">
+          <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
             <div>
               <p className="text-3xl font-bold tabular text-white sm:text-4xl">{fmtIDR(q.price)}</p>
               <p className={`mt-1 text-sm font-semibold tabular ${up ? "text-bull" : "text-bear"}`}>
@@ -36,10 +59,11 @@ export default function StockHeader({ a }: { a: AnalysisResult }) {
               </p>
             </div>
             {rangePos !== null && (
-              <div className="min-w-[200px] flex-1">
-                <div className="mb-1 flex justify-between text-[11px] text-slate-500">
+              <div className="w-full sm:w-auto sm:min-w-[220px] sm:flex-1">
+                <div className="mb-1 flex justify-between gap-2 text-[11px] text-slate-500">
                   <span>{fmtIDR(q.low52w)}</span>
-                  <span>Rentang 52 minggu</span>
+                  <span className="hidden min-[400px]:inline">Rentang 52 minggu</span>
+                  <span className="min-[400px]:hidden">52 mgg</span>
                   <span>{fmtIDR(q.high52w)}</span>
                 </div>
                 <div className="relative h-1.5 rounded-full bg-gradient-to-r from-bear/50 via-warn/40 to-bull/50">
@@ -52,7 +76,7 @@ export default function StockHeader({ a }: { a: AnalysisResult }) {
             )}
           </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5 lg:grid-cols-4">
             <Stat label="Buka" value={fmtIDR(q.open)} />
             <Stat label="Tertinggi hari ini" value={fmtIDR(q.dayHigh)} />
             <Stat label="Terendah hari ini" value={fmtIDR(q.dayLow)} />
@@ -66,25 +90,11 @@ export default function StockHeader({ a }: { a: AnalysisResult }) {
             <Stat label="Lembar beredar" value={fmtCompact(a.ownership.sharesOutstanding, "")} />
           </div>
         </div>
-
-        <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-5">
-          <ScoreRing score={a.council.score} size={132} sublabel="skor dewan" />
-          <Badge
-            tone={
-              a.council.score >= 63 ? "bull" : a.council.score >= 45 ? "warn" : "bear"
-            }
-          >
-            {a.council.label}
-          </Badge>
-          <p className="text-center text-[11px] text-slate-500">
-            Keyakinan {a.council.confidence}% · kelengkapan data {a.dataQuality.completeness}%
-          </p>
-        </div>
       </div>
 
       <div className="divider my-5" />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+      <div className="flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-3">
         <span>Diperbarui {fmtDateTime(a.generatedAt)}</span>
         <span className="flex flex-wrap gap-x-3 gap-y-1">
           {a.dataQuality.sources.map((s) => (

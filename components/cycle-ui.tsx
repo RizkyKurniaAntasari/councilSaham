@@ -101,9 +101,9 @@ export function CycleWave({
   scores?: Record<CyclePhase, number>;
 }) {
   const W = 480;
-  const H = 170;
-  const top = 34;
-  const bottom = 118;
+  const H = 140;
+  const top = 30;
+  const bottom = 112;
   // Tiap fase: segmen 120px. Akumulasi datar bawah, markup naik, distribusi datar atas, markdown turun.
   const seg = [
     `M 0 ${bottom} C 40 ${bottom + 6}, 80 ${bottom - 6}, 120 ${bottom}`,
@@ -125,14 +125,15 @@ export function CycleWave({
           : top + (bottom - top) * ease(frac);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`Posisi siklus: ${PHASE_META[phase].label}`}>
+    <div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`Posisi siklus: ${PHASE_META[phase].label}`}>
       {PHASE_ORDER.map((p, i) => (
         <rect
           key={p}
           x={i * 120 + 1}
           y={8}
           width={118}
-          height={H - 16}
+          height={H - 12}
           rx={10}
           fill={PHASE_META[p].color}
           opacity={p === phase ? 0.1 : 0.03}
@@ -153,25 +154,22 @@ export function CycleWave({
         <animate attributeName="r" values="9;15;9" dur="2s" repeatCount="indefinite" />
       </circle>
       <circle cx={x} cy={y} r={6} fill="#fff" stroke={PHASE_META[phase].color} strokeWidth={3} />
-      {PHASE_ORDER.map((p, i) => (
-        <g key={p}>
-          <text
-            x={i * 120 + 60}
-            y={H - 26}
-            textAnchor="middle"
-            fontSize={12}
-            fontWeight={p === phase ? 700 : 500}
-            fill={p === phase ? PHASE_META[p].color : "#94a3b8"}
-          >
-            {i + 1}. {PHASE_META[p].label}
-          </text>
-          {scores && (
-            <text x={i * 120 + 60} y={H - 12} textAnchor="middle" fontSize={10} fill="#64748b">
-              {scores[p]}%
-            </text>
-          )}
-        </g>
-      ))}
-    </svg>
+      </svg>
+      {/* Label sebagai HTML agar tetap terbaca saat diagram mengecil di ponsel */}
+      <div className="mt-1 grid grid-cols-4 gap-1 text-center">
+        {PHASE_ORDER.map((p, i) => (
+          <div key={p} className="min-w-0">
+            <p
+              className={`text-[10px] leading-tight sm:text-xs ${p === phase ? "font-bold" : "font-medium text-slate-400"}`}
+              style={p === phase ? { color: PHASE_META[p].color } : undefined}
+            >
+              <span className="hidden sm:inline">{i + 1}. </span>
+              {PHASE_META[p].label}
+            </p>
+            {scores && <p className="mt-0.5 text-[10px] tabular text-slate-500">{scores[p]}%</p>}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

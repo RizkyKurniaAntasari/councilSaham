@@ -120,6 +120,11 @@ export default function AnalysisView({ ticker }: { ticker: string }) {
   useEffect(() => {
     if (!data) return;
     const onScroll = () => {
+      // Di dasar halaman, bagian terakhir tak pernah mencapai batas atas — anggap aktif.
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 40) {
+        setActiveNav(NAV[NAV.length - 1].id);
+        return;
+      }
       for (const item of [...NAV].reverse()) {
         const el = document.getElementById(item.id);
         if (el && el.getBoundingClientRect().top <= 140) {
@@ -132,6 +137,15 @@ export default function AnalysisView({ ticker }: { ticker: string }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [data]);
+
+  // Di ponsel, bilah navigasi bergeser horizontal — pastikan item aktif selalu terlihat.
+  useEffect(() => {
+    const el = document.querySelector<HTMLElement>(`[data-nav="${activeNav}"]`);
+    const bar = el?.closest("nav");
+    if (!el || !bar) return;
+    const target = el.offsetLeft - bar.clientWidth / 2 + el.clientWidth / 2;
+    bar.scrollTo({ left: Math.max(0, target), behavior: "smooth" });
+  }, [activeNav]);
 
   if (error) {
     return (
@@ -175,12 +189,13 @@ export default function AnalysisView({ ticker }: { ticker: string }) {
 
       <StockHeader a={data} />
 
-      <nav className="sticky top-16 z-30 -mx-4 overflow-x-auto border-y border-white/10 bg-ink-950/85 px-4 py-2 backdrop-blur-md sm:-mx-6 sm:px-6">
+      <nav className="no-scrollbar sticky top-16 z-30 -mx-4 overflow-x-auto border-y border-white/10 bg-ink-950/85 px-4 py-2 backdrop-blur-md sm:-mx-6 sm:px-6">
         <ul className="flex min-w-max gap-1">
           {NAV.map((item) => (
             <li key={item.id}>
               <a
                 href={`#${item.id}`}
+                data-nav={item.id}
                 className={`inline-block rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                   activeNav === item.id
                     ? "bg-brandx/20 text-brandx"

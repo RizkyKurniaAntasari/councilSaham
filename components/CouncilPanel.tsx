@@ -28,7 +28,7 @@ function stanceShort(s: Stance): string {
 function MemberCard({ m }: { m: CouncilMember }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/20">
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/20">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/5 text-lg">
@@ -54,7 +54,7 @@ function MemberCard({ m }: { m: CouncilMember }) {
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <Badge tone={stanceTone(m.stance)}>{stanceShort(m.stance)}</Badge>
-        <span className="chip">Keyakinan {m.confidence}%</span>
+        <span className="chip">Keyakinan {Math.round(m.confidence)}%</span>
         <span className="chip">Bobot suara {m.weight.toFixed(1)}x</span>
       </div>
 
@@ -112,7 +112,7 @@ export default function CouncilPanel({
       }
     >
       {/* Verdict utama */}
-      <div className="grid gap-5 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-transparent p-5 lg:grid-cols-[auto_1fr]">
+      <div className="grid gap-5 rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.06] to-transparent p-4 sm:p-5 lg:grid-cols-[auto_1fr]">
         <div className="flex flex-row items-center gap-5 lg:flex-col lg:items-center">
           <ScoreRing score={c.score} size={128} sublabel="gabungan" />
           <div className="text-center">
@@ -158,7 +158,7 @@ export default function CouncilPanel({
       </div>
 
       {ai?.rekomendasi && (
-        <div className="mt-5 rounded-2xl border border-bull/20 bg-bull/6 p-5">
+        <div className="mt-5 rounded-2xl border border-bull/20 bg-bull/6 p-4 sm:p-5">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-bull">
             ✨ Rekomendasi naratif (AI)
           </p>
@@ -168,18 +168,18 @@ export default function CouncilPanel({
 
       {/* Alasan & risiko */}
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-2xl border border-bull/20 bg-bull/6 p-5">
+        <div className="rounded-2xl border border-bull/20 bg-bull/6 p-4 sm:p-5">
           <h3 className="mb-3 text-sm font-semibold text-bull">Tesis pendukung</h3>
           <BulletList items={c.keyReasons} tone="bull" empty="Tidak ada faktor pendukung yang menonjol." />
         </div>
-        <div className="rounded-2xl border border-bear/20 bg-bear/6 p-5">
+        <div className="rounded-2xl border border-bear/20 bg-bear/6 p-4 sm:p-5">
           <h3 className="mb-3 text-sm font-semibold text-bear">Risiko & keberatan</h3>
           <BulletList items={c.keyRisks} tone="bear" empty="Tidak ada risiko struktural yang menonjol." />
         </div>
       </div>
 
       {/* Yang harus dipantau */}
-      <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
         <h3 className="mb-3 text-sm font-semibold text-white">Yang harus dipantau berikutnya</h3>
         <BulletList items={c.watchlist} tone="warn" />
       </div>
@@ -198,7 +198,7 @@ export default function CouncilPanel({
       </div>
 
       {/* Ringkasan skor dimensi */}
-      <div className="mt-6 grid gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5 sm:grid-cols-2 lg:grid-cols-4">
         <ScoreBar label="Fundamental" score={a.fundamental.available ? a.fundamental.score : 50} />
         <ScoreBar label="Teknikal" score={a.technical.available ? a.technical.score : 50} />
         <ScoreBar label="Sentimen berita" score={a.news.score} />
