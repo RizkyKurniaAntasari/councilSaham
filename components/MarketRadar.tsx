@@ -592,8 +592,8 @@ export default function MarketRadar() {
             <p>
               {data.scanned} dari {data.universe} emiten dipindai · {fmtDateTime(data.generatedAt)}
             </p>
-            <button onClick={() => void load()} className="mt-1 text-brandx hover:underline">
-              Muat ulang
+            <button onClick={() => void load()} className="-mx-2 mt-0.5 rounded-lg px-2 py-1.5 text-brandx hover:underline">
+              ↻ Muat ulang
             </button>
           </div>
         )}
@@ -671,13 +671,19 @@ export default function MarketRadar() {
           )}
 
           <div className="card overflow-hidden">
-            <div className="no-scrollbar flex gap-1 overflow-x-auto border-b border-white/10 p-2">
+            <div className="no-scrollbar relative flex gap-1 overflow-x-auto border-b border-white/10 p-2">
               {TABS.map((t) => (
                 <button
                   key={t.id}
                   onClick={(e) => {
                     setTab(t.id);
-                    e.currentTarget.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+                    // Geser bilah tab agar tab terpilih berada di tengah (tanpa menggulir halaman).
+                    const btn = e.currentTarget;
+                    const bar = btn.parentElement;
+                    if (bar) {
+                      const left = btn.offsetLeft - bar.clientWidth / 2 + btn.clientWidth / 2;
+                      bar.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+                    }
                   }}
                   className={`shrink-0 whitespace-nowrap rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
                     tab === t.id ? "bg-brandx/20 text-brandx" : "text-slate-400 hover:bg-white/5 hover:text-white"
