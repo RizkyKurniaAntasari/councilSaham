@@ -64,7 +64,7 @@ function ReadyCard({ r, rank }: { r: ScreenerRow; rank: number }) {
   const riskPct = ((sc.zoneLow + sc.zoneHigh) / 2 - sc.stop) / ((sc.zoneLow + sc.zoneHigh) / 2) * 100;
   const rewardPct = (sc.target - (sc.zoneLow + sc.zoneHigh) / 2) / ((sc.zoneLow + sc.zoneHigh) / 2) * 100;
   return (
-    <li className="card overflow-hidden">
+    <li className="card min-w-0 overflow-hidden">
       <div className="flex items-start gap-3 border-b border-white/10 p-4">
         <span className="mt-1 w-5 shrink-0 text-xs tabular text-slate-500">{rank}</span>
         <Link
@@ -107,12 +107,12 @@ function ReadyCard({ r, rank }: { r: ScreenerRow; rank: number }) {
             </p>
             <p className="mt-0.5 text-[11px] leading-snug text-slate-500">{r.rec.position.basis}</p>
           </div>
-          {r.timing.trigger && (
-            <p className="rounded-lg bg-bear/10 px-3 py-2 text-[11px] leading-snug text-slate-300">
-              <span className="font-semibold text-bear">Batal bila · </span>
-              {r.timing.trigger.label} Rp {fmtNumber(r.timing.trigger.price, 0)} — setup gugur, keluar tanpa menunggu.
-            </p>
-          )}
+          <p className="rounded-lg bg-bear/10 px-3 py-2 text-[11px] leading-snug text-slate-300">
+            <span className="font-semibold text-bear">Batal bila · </span>
+            {r.timing.trigger
+              ? `harga tutup di bawah Rp ${fmtNumber(r.timing.trigger.price, 0)} (low pola/pantulan) — setup gugur, keluar tanpa menunggu stop loss.`
+              : `harga tutup di bawah stop loss Rp ${fmtNumber(sc.stop, 0)} — keluar tanpa menunggu.`}
+          </p>
         </div>
 
         <div>
@@ -135,7 +135,10 @@ function ReadyCard({ r, rank }: { r: ScreenerRow; rank: number }) {
             ))}
           </ul>
           <p className="mt-2 text-[11px] leading-relaxed text-slate-500">{r.timing.situation}</p>
-          <Link href={`/saham/${r.ticker}#timing`} className="mt-2 inline-block text-xs font-semibold text-brandx hover:underline">
+          <Link
+            href={`/saham/${r.ticker}#timing`}
+            className="-mx-1 mt-1 inline-block rounded px-1 py-1.5 text-xs font-semibold text-brandx hover:underline"
+          >
             Lihat analisis lengkap {r.ticker} →
           </Link>
         </div>
@@ -148,7 +151,7 @@ function AlmostCard({ r }: { r: ScreenerRow }) {
   const sc = r.timing.nearScenario!;
   const t = { label: sc.triggerLabel ?? "Pemicu", price: sc.triggerPrice! };
   return (
-    <li className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+    <li className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <div className="flex items-center gap-2.5">
         <Link
           href={`/saham/${r.ticker}#timing`}
@@ -321,7 +324,7 @@ export default function SiapMasuk() {
             </h2>
             <p className="muted mb-3">Belum boleh dibeli — tunggu pemicunya terjadi dulu, lalu cek ulang di halaman saham.</p>
             {almost.length ? (
-              <ul className="grid gap-3 md:grid-cols-2">
+              <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {almost.map((r) => (
                   <AlmostCard key={r.ticker} r={r} />
                 ))}
