@@ -18,6 +18,20 @@ body {
   background-attachment: fixed;
 }
 
+/* Sembunyikan penanda bawaan <summary> (segitiga) di semua browser — termasuk
+   Safari/iOS yang mengabaikan list-style — karena kita memakai ikon ▼/▲ sendiri. */
+summary {
+  display: block;
+  list-style: none;
+  cursor: pointer;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary::marker {
+  content: "";
+}
+
 ::selection {
   background: rgba(91, 140, 255, 0.35);
 }

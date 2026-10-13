@@ -139,7 +139,7 @@ export default function CyclePanel({ cycle, rec }: { cycle: CycleReport; rec: Da
             </div>
 
             <details className="group mt-4">
-              <summary className="cursor-pointer list-none text-xs font-semibold text-brandx">
+              <summary className="-my-1.5 select-none py-1.5 text-xs font-semibold text-brandx">
                 <span className="group-open:hidden">▼ Lihat cara skor {rec.score} dihitung</span>
                 <span className="hidden group-open:inline">▲ Sembunyikan rincian skor</span>
               </summary>

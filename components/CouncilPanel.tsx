@@ -239,7 +239,7 @@ export default function CouncilPanel({
 
       {/* Cara skor dewan dihitung */}
       <details className="group mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-        <summary className="cursor-pointer list-none text-xs font-semibold text-brandx">
+        <summary className="-my-1.5 select-none py-1.5 text-xs font-semibold text-brandx">
           <span className="group-open:hidden">▼ Lihat cara skor dewan {c.score} dihitung</span>
           <span className="hidden group-open:inline">▲ Sembunyikan perhitungan</span>
         </summary>
