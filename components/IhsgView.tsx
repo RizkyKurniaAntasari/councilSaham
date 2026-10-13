@@ -171,10 +171,10 @@ export default function IhsgView() {
               </div>
               <ul className="divide-y divide-white/5 rounded-2xl border border-white/8">
                 {c.evidence.map((e) => (
-                  <li key={e.label} className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-                    <span className="text-xs text-slate-400">{e.label}</span>
-                    <span className="flex items-center gap-2">
-                      <span className="text-xs font-semibold tabular text-slate-100">{e.value}</span>
+                  <li key={e.label} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3.5 py-2.5">
+                    <span className="min-w-0 text-xs text-slate-400">{e.label}</span>
+                    <span className="ml-auto flex items-center gap-2">
+                      <span className="whitespace-nowrap text-xs font-semibold tabular text-slate-100">{e.value}</span>
                       {e.supports ? <PhaseBadge phase={e.supports} small /> : <span className="text-[10px] text-slate-600">netral</span>}
                     </span>
                   </li>
