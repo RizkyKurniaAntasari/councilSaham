@@ -80,6 +80,7 @@ export async function analyze(
     supports: technical.supports,
     resistances: technical.resistances,
     cycle,
+    swingLow10: Math.min(...candles.slice(-10).map((c) => c.l)),
   });
   if (technical.available) {
     technical.levels =

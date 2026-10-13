@@ -119,7 +119,13 @@ async function scanOne(info: IdxTicker, ihsg: IhsgReport | null): Promise<Screen
 
   const cycle = buildCycle(candles, { timeline: false });
   const { supports, resistances } = pivotLevels(candles);
-  const plan = buildTradePlan(ind, { price, supports, resistances, cycle });
+  const plan = buildTradePlan(ind, {
+    price,
+    supports,
+    resistances,
+    cycle,
+    swingLow10: Math.min(...candles.slice(-10).map((c) => c.l)),
+  });
   const entry = buildEntrySignal(candles, ind, { supports, resistances, plan, cycle });
   const rec = buildRecommendation(cycle, ind, {
     price,

@@ -73,7 +73,17 @@ export function PlanRiskLine({ plan }: { plan: TradePlan }) {
   if (plan.mode !== "BELI" || plan.riskPct === null || plan.rewardPct === null) return null;
   return (
     <p className="rounded-lg bg-white/[0.03] px-3 py-2 text-[11px] leading-relaxed text-slate-400">
-      Dihitung dari tengah zona entry: risiko ke stop{" "}
+      {plan.priceVsZone === "DI_ATAS" && plan.entryHigh && (
+        <span className="mb-1 block font-semibold text-warn">
+          Harga sekarang {plan.distToZonePct !== null ? `+${plan.distToZonePct.toFixed(1).replace(".", ",")}%` : ""} di atas
+          zona ideal — jangan dikejar, antre beli di zona.
+        </span>
+      )}
+      {plan.priceVsZone === "DALAM" && (
+        <span className="mb-1 block font-semibold text-bull">Harga sekarang berada di dalam zona ideal.</span>
+      )}
+      Zona ideal dihitung dari stop & target (batas atas = R/R 1:{plan.idealRR}), bukan dari harga terakhir. Dari tengah
+      zona: risiko ke stop{" "}
       <span className="font-semibold text-bear">{plan.riskPct.toFixed(1).replace(".", ",")}%</span>, potensi ke TP1{" "}
       <span className="font-semibold text-bull">{plan.rewardPct.toFixed(1).replace(".", ",")}%</span>. Semua harga dibulatkan
       ke fraksi BEI (stop & target dibulatkan ke bawah).

@@ -27,7 +27,7 @@ Syarat selalu berbentuk **skenario** yang konsisten — syarat, zona beli, stop,
 - **Pantulan** — beli dekat harga sekarang setelah pembalikan dikonfirmasi (mis. *tutup di atas high candle pantulan dari MA50*). Bila harga sudah > 8% dari MA20, skenarionya pullback ke MA20.
 - **Tembus** — beli di zona *baru* tepat di atas MA/resistance yang ditembus, dengan stop & target yang dihitung ulang.
 
-Skenario dengan R/R < 1 tidak ditawarkan.
+**Zona beli ideal, bukan harga terakhir.** Batas atas zona = stop + (TP1 − stop) ÷ 3 — harga tertinggi yang masih memberi R/R 1:2 — dengan stop di bawah penopang struktural dan target dari resistance (atau proyeksi dari penopang, bukan dari harga). Saham yang sudah naik melewati zona tidak divalidasi sebagai *Siap Beli*; skenarionya menjadi **Antre beli di zona ideal**. Zona skenario pantulan/tembus juga dipangkas ke batas R/R 1:2, dan skenario yang tidak memungkinkan R/R itu dilewati.
 
 ### Siap Masuk (`/siap-masuk`)
 

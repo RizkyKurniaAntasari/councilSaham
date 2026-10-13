@@ -240,11 +240,15 @@ export default function SiapMasuk() {
             sudah dikonfirmasi, atau harga di atas MA20 & MA50 dan ≤ 3% dari MA20 dengan ≥ 2 tanda perlawanan pembeli.
           </li>
           <li>2. Tidak ada penghalang (MA/resistance) &lt; 2% di atas harga, tidak overextended (≤ 8% dari MA20, RSI ≤ 72), dan tidak ada pola bearish aktif.</li>
-          <li>3. Rekomendasi data bukan "Ambil Untung" atau "Hindari".</li>
-          <li>4. Risk/reward skenario ≥ 1:1,2, dan nilai transaksi rata-rata memenuhi filter likuiditas.</li>
           <li>
-            <strong className="text-warn">Hampir siap</strong>: masih menunggu satu pemicu yang jaraknya ≤ 3% dari harga,
-            dengan R/R skenario ≥ 1:1,5.
+            3. <strong className="text-slate-200">Harga berada di dalam zona ideal.</strong> Zona tidak memakai harga terakhir
+            sebagai batas atas — batas atasnya = stop + (target − stop) ÷ 3, yaitu harga tertinggi yang masih memberi
+            R/R 1:2. Saham yang sudah naik melewati zona tidak divalidasi; rencananya antre beli di zona.
+          </li>
+          <li>4. Rekomendasi data bukan "Ambil Untung" atau "Hindari", dan nilai transaksi rata-rata memenuhi filter likuiditas.</li>
+          <li>
+            <strong className="text-warn">Hampir siap</strong>: masih menunggu satu pemicu yang jaraknya ≤ 3% dari harga —
+            termasuk saham yang tinggal turun sedikit ke zona idealnya (antre beli).
           </li>
         </ul>
       </details>
@@ -312,8 +316,9 @@ export default function SiapMasuk() {
               </ul>
             ) : (
               <p className="card p-5 text-sm leading-relaxed text-slate-400">
-                Tidak ada saham yang memenuhi seluruh syarat hari ini. Ini sinyal untuk bersabar — memaksakan entry
-                tanpa konfirmasi adalah sumber kerugian terbesar. Pantau daftar "Hampir siap" di bawah.
+                Tidak ada saham yang memenuhi seluruh syarat hari ini — kandidat terbaik harganya sudah di atas zona
+                idealnya. Ini sinyal untuk bersabar: membeli di harga yang sudah lari memperburuk risk/reward. Pasang
+                antrean beli di zona ideal pada daftar "Hampir siap" di bawah.
               </p>
             )}
           </section>

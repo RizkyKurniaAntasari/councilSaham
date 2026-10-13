@@ -1,6 +1,6 @@
 import { detectPatterns } from "./candles";
 import { clamp, sma } from "./indicators";
-import { roundTick } from "./tradeplan";
+import { IDEAL_RR, roundTick } from "./tradeplan";
 import type {
   Candle,
   CandlePattern,
@@ -237,6 +237,16 @@ export function buildEntrySignal(
   }
   if (buyerSignals.length) add("Perlawanan pembeli", Math.min(12, buyerSignals.length * 3), `${buyerSignals.length} tanda (+3 per tanda, maks. +12).`);
   if (reclaimConfirmed) add("Pantulan terkonfirmasi", 6, `Penutupan hari ini di atas high candle pantulan dari ${reclaim!.label}.`);
+  const zp = ctx.plan;
+  if (zp.mode === "BELI" && zp.noRoom) {
+    add("Tidak ada ruang R/R", -8, `Target ${rp(zp.target1.price)} terlalu dekat dengan stop ${rp(zp.stopLoss.price)} untuk R/R 1:${IDEAL_RR}.`);
+  } else if (zp.mode === "BELI" && zp.priceVsZone === "DI_ATAS" && zp.entryHigh) {
+    add(
+      "Harga di atas zona ideal",
+      -6,
+      `Harga ${pc(zp.distToZonePct ?? 0)} di atas batas zona ideal ${rp(zp.entryHigh.price)} (batas R/R 1:${IDEAL_RR}) — membeli sekarang berarti mengejar.`,
+    );
+  }
   const score = Math.round(clamp(items.reduce((a, b) => a + b.points, 0)));
 
   /* ---------- 5. Vonis ---------- */
@@ -258,6 +268,14 @@ export function buildEntrySignal(
     verdict = "SIAP";
   else if (score >= 45 || bestBull || reclaim) verdict = "TUNGGU";
   else verdict = "BELUM";
+  // Siap Beli hanya bila harga berada di zona ideal (dihitung dari stop & target, bukan dari harga
+  // terakhir). Saham yang sudah naik melewati zona tidak divalidasi — rencananya antre di zona.
+  const zoneOk =
+    zp.mode === "BELI" &&
+    !zp.noRoom &&
+    zp.priceVsZone !== "DI_ATAS" &&
+    price > zp.stopLoss.price + atr * 0.5;
+  if (verdict === "SIAP" && !zoneOk) verdict = "TUNGGU";
 
   const extendedNow = extended;
   /* ---------- 6. Skenario masuk: syarat + zona + stop + target selalu dihitung bersama ---------- */
@@ -272,6 +290,8 @@ export function buildEntrySignal(
     const mid = (lo + hi) / 2;
     return mid > stop ? (t - mid) / (mid - stop) : null;
   };
+  // Batas atas zona setiap skenario = harga tertinggi yang masih memberi R/R ≥ 1:IDEAL_RR.
+  const idealCap = (stop: number, t: number) => roundTick(stop + (t - stop) / (1 + IDEAL_RR), "down");
   const scenarios: EntryScenario[] = [];
   const notes: string[] = [];
   let trigger: EntrySignal["trigger"] = null;
@@ -318,7 +338,23 @@ export function buildEntrySignal(
       notes.push(`${obstacle.label} ${rp(obstacle.price)} (${pc(obstacle.distPct)}) di atas harga — area ambil untung sebagian; tambah posisi hanya bila ditutup tembus dengan volume.`);
     }
   } else {
-    // Skenario A — Pantulan: beli dekat harga sekarang setelah pembalikan dikonfirmasi.
+    // Skenario Antre: harga sudah di atas zona ideal → pasang antrean beli di zona, jangan mengejar.
+    if (zp.mode === "BELI" && !zp.noRoom && zp.priceVsZone === "DI_ATAS" && zp.entryLow && zp.entryHigh && verdict !== "HINDARI") {
+      scenarios.push({
+        key: "antre",
+        title: "Antre beli di zona ideal",
+        condition: `Harga turun ke zona ideal ${rp(zp.entryLow.price)}–${rp(zp.entryHigh.price)} (${pc(((zp.entryHigh.price - price) / price) * 100)} dari sekarang). Pasang antrean beli (limit order) di zona ini — jangan mengejar harga${bestBull || reclaim ? "; lebih kuat bila disertai pola pembalikan di sana" : ""}.`,
+        zoneLow: zp.entryLow.price,
+        zoneHigh: zp.entryHigh.price,
+        stop: zp.stopLoss.price,
+        target: zp.target1.price,
+        riskReward: zp.riskReward1,
+        basis: `${zp.entryHigh.basis} Stop: ${zp.stopLoss.basis} Target: ${zp.target1.basis}`,
+        triggerPrice: zp.entryHigh.price,
+        triggerLabel: "Turun ke zona ideal",
+      });
+    }
+    // Skenario Pantulan: beli dekat penopang setelah pembalikan dikonfirmasi.
     if (floor && verdict !== "HINDARI") {
       let condition: string;
       let confirmAt: number | null = null;
@@ -340,19 +376,26 @@ export function buildEntrySignal(
       const hi = confirmAt !== null ? roundTick(confirmAt + atr * 0.25) : roundTick(floor.v + atr * 0.5);
       const stop = roundTick(anchorLow - atr * (confirmAt !== null ? 0.25 : 0.75), "down");
       const t = mkTarget(hi);
-      scenarios.push({
+      const capP = idealCap(stop, t.v);
+      const pLo = Math.min(lo, hi);
+      const pHi = Math.min(Math.max(lo, hi), capP);
+      const pTitle = pullbackInTrend ? "Beli pullback yang terkonfirmasi" : extendedNow ? "Beli saat pullback ke MA20" : "Beli saat pantulan terkonfirmasi";
+      if (pHi < pLo) {
+        notes.push(`Skenario "${pTitle}" dilewati: agar R/R ≥ 1:${IDEAL_RR}, harga beli maksimal ${rp(capP)} — di bawah zona skenario ${rp(pLo)}.`);
+      } else scenarios.push({
         key: "pantulan",
-        title: pullbackInTrend ? "Beli pullback yang terkonfirmasi" : extendedNow ? "Beli saat pullback ke MA20" : "Beli saat pantulan terkonfirmasi",
+        title: pTitle,
         condition,
-        zoneLow: Math.min(lo, hi),
-        zoneHigh: Math.max(lo, hi),
+        zoneLow: pLo,
+        zoneHigh: pHi,
         stop,
         target: t.v,
-        riskReward: rrOf(Math.min(lo, hi), Math.max(lo, hi), stop, t.v),
+        riskReward: rrOf(pLo, pHi, stop, t.v),
         basis:
-          confirmAt !== null
-            ? `Zona dekat level konfirmasi ${rp(confirmAt)} (−0,5×ATR s.d. +0,25×ATR, tidak di bawah ${floor.why}) — jangan mengejar di atasnya. Stop di bawah low ${rp(anchorLow)} − 0,25×ATR. Target ${t.why}.`
-            : `Zona di ${floor.why} s.d. +0,5×ATR. Stop ${rp(floor.v)} − 0,75×ATR. Target ${t.why}.`,
+          (confirmAt !== null
+            ? `Zona dekat level konfirmasi ${rp(confirmAt)} (−0,5×ATR s.d. +0,25×ATR, tidak di bawah ${floor.why}). Stop di bawah low ${rp(anchorLow)} − 0,25×ATR. Target ${t.why}.`
+            : `Zona di ${floor.why} s.d. +0,5×ATR. Stop ${rp(floor.v)} − 0,75×ATR. Target ${t.why}.`) +
+          (pHi < Math.max(lo, hi) ? ` Batas atas dipangkas ke ${rp(capP)} = stop + (target − stop) ÷ ${1 + IDEAL_RR} agar R/R ≥ 1:${IDEAL_RR}.` : ""),
         triggerPrice: confirmAt ?? roundTick(floor.v + atr * 0.5),
         triggerLabel:
           confirmAt !== null
@@ -361,7 +404,7 @@ export function buildEntrySignal(
               ? "Sudah di zona — tunggu pola pembalikan di"
               : `Turun ke ${floor.why.split(" Rp")[0]}`,
       });
-      if (confirmAt !== null) trigger = { label: "Konfirmasi pantulan", price: confirmAt };
+      if (confirmAt !== null && pHi >= pLo) trigger = { label: "Konfirmasi pantulan", price: confirmAt };
     }
 
     // Skenario B — Tembus: beli setelah penghalang ditembus, di zona BARU tepat di atas level itu.
@@ -379,28 +422,40 @@ export function buildEntrySignal(
       const stop = roundTick(lt - atr * 1.25, "down");
       const t = mkTarget(hi);
       const name = lvl.ma ? lvl.label : `resistance ${rp(lvl.v)}`;
-      scenarios.push({
+      const capT = idealCap(stop, t.v);
+      const tHi = Math.min(hi, capT);
+      if (tHi < lo) {
+        notes.push(`Skenario "Beli setelah tembus ${name}" dilewati: target ${rp(t.v)} terlalu dekat — untuk R/R ≥ 1:${IDEAL_RR} harga beli maksimal ${rp(capT)}, di bawah level tembus ${rp(lt)}.`);
+      } else scenarios.push({
         key: "tembus",
         title: `Beli setelah tembus ${name}`,
         condition: `Harga ditutup ≥ ${rp(lt)} (${pc(((lt - price) / price) * 100)} dari sekarang) — menembus ${lvl.ma ? `${name} ${rp(lvl.v)}` : name} — dengan volume ≥ 1,2× rata-rata 20 hari${lvl.label === "MA20" ? ", 2 hari berturut-turut" : ""}.`,
         zoneLow: lo,
-        zoneHigh: hi,
+        zoneHigh: tHi,
         stop,
         target: t.v,
-        riskReward: rrOf(lo, hi, stop, t.v),
-        basis: `Zona baru setelah tembus: ${rp(lt)} s.d. +0,5×ATR — bukan zona lama di bawahnya. Stop ${rp(lt)} − 1,25×ATR (tembus gagal). Target ${t.why}.`,
+        riskReward: rrOf(lo, tHi, stop, t.v),
+        basis: `Zona baru setelah tembus: ${rp(lt)} s.d. ${tHi < hi ? `${rp(tHi)} (batas R/R 1:${IDEAL_RR})` : "+0,5×ATR"} — bukan zona lama di bawahnya. Stop ${rp(lt)} − 1,25×ATR (tembus gagal). Target ${t.why}.`,
         triggerPrice: lt,
         triggerLabel: `Tutup di atas ${name}`,
       });
-      trigger ??= { label: `Tutup di atas ${name}`, price: lt };
+      if (tHi >= lo) trigger ??= { label: `Tutup di atas ${name}`, price: lt };
     }
     // Downtrend: struktur perlu diperbaiki dulu → skenario tembus didahulukan.
-    if (belowAll && scenarios.length === 2) scenarios.reverse();
+    if (belowAll && scenarios.length >= 2 && scenarios[scenarios.length - 1].key === "tembus") {
+      scenarios.unshift(scenarios.pop()!);
+    }
     // Skenario dengan potensi untung < risiko tidak ditawarkan.
     for (let k = scenarios.length - 1; k >= 0; k--) {
       const sc = scenarios[k];
       if (sc.riskReward !== null && sc.riskReward < 1) {
         notes.push(`Skenario "${sc.title}" dilewati: R/R hanya 1:${sc.riskReward.toFixed(2).replace(".", ",")} (target ${rp(sc.target)} terlalu dekat).`);
+        scenarios.splice(k, 1);
+      }
+    }
+    // Skenario dengan zona identik (mis. pantulan yang dipangkas sama dengan zona ideal) cukup satu.
+    for (let k = scenarios.length - 1; k > 0; k--) {
+      if (scenarios.slice(0, k).some((o) => o.zoneLow === scenarios[k].zoneLow && o.zoneHigh === scenarios[k].zoneHigh)) {
         scenarios.splice(k, 1);
       }
     }

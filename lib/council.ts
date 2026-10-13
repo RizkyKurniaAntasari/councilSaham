@@ -483,7 +483,11 @@ function buildActionPlan(
       entry: buyStance
         ? entry && entry.verdict !== "SIAP"
           ? entry.scenarios[0]
-            ? `Sikap beli, tetapi timing belum matang (${entry.label}). ${entry.scenarios[0].title}: ${entry.scenarios[0].condition} Setelah itu beli di zona ${fmtPrice(entry.scenarios[0].zoneLow)}–${fmtPrice(entry.scenarios[0].zoneHigh)} dengan stop ${fmtPrice(entry.scenarios[0].stop)}.${entry.scenarios[1] ? ` Alternatif — ${entry.scenarios[1].title.replace(/^[AB] · /, "")}: beli di ${fmtPrice(entry.scenarios[1].zoneLow)}–${fmtPrice(entry.scenarios[1].zoneHigh)}.` : ""}`
+            ? `Sikap beli, tetapi timing belum matang (${entry.label}). ${entry.scenarios[0].title}: ${entry.scenarios[0].condition}${
+                entry.scenarios[0].key === "antre"
+                  ? ` Stop ${fmtPrice(entry.scenarios[0].stop)}, target ${fmtPrice(entry.scenarios[0].target)}.`
+                  : ` Setelah itu beli di zona ${fmtPrice(entry.scenarios[0].zoneLow)}–${fmtPrice(entry.scenarios[0].zoneHigh)} dengan stop ${fmtPrice(entry.scenarios[0].stop)}.`
+              }${entry.scenarios[1] ? ` Alternatif — ${entry.scenarios[1].title.replace(/^[A-C] · /, "")}: beli di ${fmtPrice(entry.scenarios[1].zoneLow)}–${fmtPrice(entry.scenarios[1].zoneHigh)}.` : ""}`
             : `Sikap beli, tetapi timing belum matang (${entry.label}) — belum ada skenario masuk dengan R/R ≥ 1.`
           : plan.riskReward1 !== null && plan.riskReward1 < 1
           ? plan.entryLow && plan.riskRewardAtLow !== null && plan.riskRewardAtLow >= 1

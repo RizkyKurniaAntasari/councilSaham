@@ -1,5 +1,5 @@
 import { clamp } from "./indicators";
-import { pct, positionSize, rp } from "./tradeplan";
+import { IDEAL_RR, pct, positionSize, rp } from "./tradeplan";
 import type { CycleReport, DataRecommendation, EntrySignal, IndicatorSet, RecAction, ScoreItem, TradePlan } from "./types";
 
 /**
@@ -161,6 +161,17 @@ export function buildRecommendation(
   if (avgValue20 < 1e9) add("Likuiditas", -10, `Nilai transaksi rata-rata 20H Rp${liqM.toFixed(2).replace(".", ",")} M < Rp1 M/hari.`);
   else if (avgValue20 < 5e9) add("Likuiditas", -4, `Nilai transaksi rata-rata 20H Rp${liqM.toFixed(1).replace(".", ",")} M < Rp5 M/hari.`);
 
+  // 7b. Posisi harga terhadap zona ideal (zona dihitung dari stop & target, bukan dari harga terakhir)
+  if (plan.mode === "BELI" && plan.noRoom) {
+    add("Tidak ada ruang R/R", -8, `Target ${rp(plan.target1.price)} terlalu dekat dengan stop ${rp(plan.stopLoss.price)} untuk R/R 1:${IDEAL_RR}.`);
+  } else if (plan.mode === "BELI" && plan.priceVsZone === "DI_ATAS" && plan.entryHigh) {
+    add(
+      "Harga di atas zona ideal",
+      -5,
+      `Harga ${pct(plan.distToZonePct ?? 0)} di atas batas zona ideal ${rp(plan.entryHigh.price)} (batas R/R 1:${IDEAL_RR}).`,
+    );
+  }
+
   // 8. Risk/reward rencana
   if (plan.mode === "BELI" && plan.riskReward1 !== null && plan.riskReward1 < 1.2) {
     add(
@@ -183,6 +194,7 @@ export function buildRecommendation(
   else action = "HINDARI";
   if (action === "BELI" && cycle.phase === "AKUMULASI") action = "BELI_BERTAHAP";
   if ((action === "BELI" || action === "BELI_BERTAHAP") && plan.mode !== "BELI") action = "PANTAU";
+  if ((action === "BELI" || action === "BELI_BERTAHAP") && plan.noRoom) action = "PANTAU";
   // Potensi untung lebih kecil dari risiko → jangan beli di harga sekarang.
   const rrBlocked =
     (action === "BELI" || action === "BELI_BERTAHAP") && plan.riskReward1 !== null && plan.riskReward1 < 1;
@@ -204,6 +216,12 @@ export function buildRecommendation(
           : " Tunggu struktur harga yang lebih baik."),
     );
   }
+  const chasing = (action === "BELI" || action === "BELI_BERTAHAP") && plan.priceVsZone === "DI_ATAS" && plan.entryLow && plan.entryHigh;
+  if (chasing) {
+    warnings.unshift(
+      `Jangan kejar harga: ${rp(ctx.price)} sudah ${pct(plan.distToZonePct ?? 0)} di atas zona ideal. Antre beli di ${rp(plan.entryLow!.price)}–${rp(plan.entryHigh!.price)} (R/R ≥ 1:${IDEAL_RR}).`,
+    );
+  }
   const timingPending =
     (action === "BELI" || action === "BELI_BERTAHAP") && ctx.entry && ctx.entry.verdict !== "SIAP";
   if (timingPending && ctx.entry) {
@@ -221,7 +239,9 @@ export function buildRecommendation(
         : { pct: 0, basis: "Tidak ada alokasi baru pada aksi ini." };
 
   const horizon =
-    timingPending
+    chasing
+      ? `Antre beli di zona ideal ${rp(plan.entryLow!.price)}–${rp(plan.entryHigh!.price)}, lalu ${cycle.phase === "AKUMULASI" ? "cicil 1–3 bulan" : "ikuti tren 2–6 minggu"}`
+      : timingPending
       ? `Tunggu konfirmasi timing dulu, lalu ${cycle.phase === "AKUMULASI" ? "cicil 1–3 bulan" : "ikuti tren 2–6 minggu"}`
       : action === "BELI" || action === "BELI_BERTAHAP"
       ? cycle.phase === "AKUMULASI"

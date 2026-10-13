@@ -371,6 +371,14 @@ export interface TradePlan {
   /** R/R ke TP1 bila beli di batas bawah zona entry. */
   riskRewardAtLow: number | null;
   invalidation: string;
+  /** R/R minimum di batas atas zona (zona ideal dihitung dari stop & target, bukan dari harga terakhir). */
+  idealRR: number;
+  /** Posisi harga terakhir terhadap zona ideal. */
+  priceVsZone: "DALAM" | "DI_ATAS" | "DI_BAWAH" | null;
+  /** Jarak harga ke batas zona terdekat, % (positif = harga di atas zona). */
+  distToZonePct: number | null;
+  /** true bila tidak ada ruang: target terlalu dekat dengan stop untuk R/R ideal. */
+  noRoom: boolean;
 }
 
 export type RecAction = "BELI" | "BELI_BERTAHAP" | "PANTAU" | "AMBIL_UNTUNG" | "HINDARI";
@@ -522,7 +530,7 @@ export interface MaLevel {
 
 /** Skenario masuk yang konsisten: syarat + zona + stop + target dihitung bersama. */
 export interface EntryScenario {
-  key: "sekarang" | "pantulan" | "tembus";
+  key: "sekarang" | "antre" | "pantulan" | "tembus";
   title: string;
   condition: string; // syarat yang harus terjadi dulu
   zoneLow: number;

@@ -9,6 +9,9 @@ import type { CycleReport, IndicatorSet, PriceLevel, TradePlan } from "./types";
  */
 
 /** Fraksi harga BEI (berlaku untuk saham reguler). */
+/** R/R minimum di batas atas zona beli: potensi untung ke TP1 = 2× risiko ke stop. */
+export const IDEAL_RR = 2;
+
 export function idxTick(price: number): number {
   if (price < 200) return 1;
   if (price < 500) return 2;
@@ -43,7 +46,7 @@ function level(price: number, ref: number, basis: string, raw?: number): PriceLe
 
 export function buildTradePlan(
   ind: IndicatorSet,
-  ctx: { price: number; supports: number[]; resistances: number[]; cycle: CycleReport },
+  ctx: { price: number; supports: number[]; resistances: number[]; cycle: CycleReport; swingLow10?: number | null },
 ): TradePlan {
   const { price, cycle } = ctx;
   const atr = ind.atr14 && ind.atr14 > 0 ? ind.atr14 : price * 0.03;
@@ -95,84 +98,81 @@ export function buildTradePlan(
       riskReward1: null,
       riskReward2: null,
       riskRewardAtLow: null,
+      idealRR: IDEAL_RR,
+      priceVsZone: null,
+      distToZonePct: null,
+      noRoom: false,
       invalidation: `Bagi pemegang: keluar bila harga tutup di bawah ${rp(exit)}. Pandangan negatif batal bila harga tutup di atas ${rp(reentry)} dengan volume > 1,5× rata-rata.`,
     };
   }
 
   /* ---------------- Mode BELI: fase Akumulasi / Mark Up ---------------- */
+  // Prinsip: zona beli ditentukan oleh STRUKTUR (penopang, stop, target), bukan oleh harga terakhir.
+  // Batas atas zona = harga tertinggi yang masih memberi R/R ≥ 1:IDEAL_RR. Saham yang sudah naik
+  // melewati batas itu tidak "divalidasi" — rencananya menjadi antre di zona ideal.
+
+  // 1. Penopang struktural di bawah harga.
   let lowRaw: number;
   let lowBasis: string;
-  if (cycle.available && cycle.phase === "AKUMULASI") {
-    const fromRange = cycle.range.low + atr * 0.25;
-    const fromAtr = price - atr * 1.5;
-    if (fromRange >= fromAtr) {
-      lowRaw = fromRange;
-      lowBasis = `Dasar rentang 40H ${rp(cycle.range.low)} + 0,25×ATR — beli dekat dasar area akumulasi.`;
-    } else {
-      lowRaw = fromAtr;
-      lowBasis = `Harga − 1,5×ATR (dasar rentang ${rp(cycle.range.low)} terlalu jauh).`;
-    }
+  const swingLow10 = ctx.swingLow10 ?? null;
+  if (cycle.available && cycle.phase === "AKUMULASI" && cycle.range.low < price) {
+    lowRaw = cycle.range.low + atr * 0.25;
+    lowBasis = `Dasar rentang akumulasi 40H ${rp(cycle.range.low)} + 0,25×ATR — beli dekat dasar area akumulasi.`;
   } else {
-    // Mark Up: tunggu pullback ke penopang terdekat (MA20 / support) dalam jangkauan 2×ATR.
     const cands: { v: number; why: string }[] = [];
-    if (ind.ma20 !== null && ind.ma20 < price && ind.ma20 >= price - atr * 2) cands.push({ v: ind.ma20, why: `MA20 ${rp(ind.ma20)}` });
-    const s = supports.find((x) => x >= price - atr * 2);
-    if (s !== undefined) cands.push({ v: s, why: `support ${rp(s)}` });
-    const best = cands.sort((a, b) => b.v - a.v)[0];
+    if (ind.ma20 !== null && ind.ma20 < price) cands.push({ v: ind.ma20, why: `MA20 ${rp(ind.ma20)}` });
+    if (ind.ma50 !== null && ind.ma50 < price) cands.push({ v: ind.ma50, why: `MA50 ${rp(ind.ma50)}` });
+    for (const sp of supports) cands.push({ v: sp, why: `support ${rp(sp)}` });
+    if (swingLow10 !== null && swingLow10 < price) cands.push({ v: swingLow10, why: `low 10 hari ${rp(swingLow10)}` });
+    // Penopang tertinggi yang benar-benar di bawah harga (minimal 0,25×ATR).
+    const best = cands.filter((c) => c.v <= price - atr * 0.25).sort((a, b) => b.v - a.v)[0];
     if (best) {
       lowRaw = best.v;
-      lowBasis = `Pullback ke ${best.why} (penopang tertinggi dalam jangkauan 2×ATR).`;
+      lowBasis = `Pullback ke ${best.why} — penopang struktural tertinggi di bawah harga.`;
     } else {
       lowRaw = price - atr;
-      lowBasis = `Harga − 1×ATR (tidak ada MA20/support dalam jangkauan 2×ATR).`;
+      lowBasis = `Harga − 1×ATR (tidak ada MA/support di bawah harga).`;
     }
   }
-  // Zona entry minimal selebar 0,5×ATR dan tidak di atas harga sekarang.
-  if (lowRaw > price - atr * 0.5) {
-    lowRaw = price - atr * 0.5;
-    lowBasis += " Dibatasi ke harga − 0,5×ATR agar zona entry tidak sempit.";
-  }
-  const entryLowP = roundTick(lowRaw, "nearest");
-  const entryHighP = roundTick(price, "nearest");
-  const mid = (entryLowP + entryHighP) / 2;
 
-  // Stop loss: di bawah struktur terdekat di bawah zona entry.
-  const below = supports.find((x) => x < entryLowP && x >= entryLowP - atr * 2.5);
+  // 2. Stop loss di bawah struktur penopang.
+  const below = supports.find((x) => x < lowRaw && x >= lowRaw - atr * 2.5);
   let stopRaw: number;
   let stopBasis: string;
-  if (cycle.available && cycle.phase === "AKUMULASI" && cycle.range.low < entryLowP) {
+  if (cycle.available && cycle.phase === "AKUMULASI" && cycle.range.low <= lowRaw) {
     stopRaw = cycle.range.low - atr * 0.5;
     stopBasis = `Dasar rentang 40H ${rp(cycle.range.low)} − 0,5×ATR — jebol dasar = akumulasi gagal.`;
   } else if (below !== undefined) {
     stopRaw = below - atr * 0.25;
-    stopBasis = `Support ${rp(below)} − 0,25×ATR (struktur terdekat di bawah zona entry).`;
+    stopBasis = `Support ${rp(below)} − 0,25×ATR (struktur di bawah penopang).`;
   } else {
-    stopRaw = entryLowP - atr;
-    stopBasis = `Batas bawah entry − 1×ATR (tidak ada support dalam 2,5×ATR).`;
+    stopRaw = lowRaw - atr;
+    stopBasis = `Penopang ${rp(lowRaw)} − 1×ATR (tidak ada support lain dalam 2,5×ATR).`;
   }
-  // Jaga jarak wajar: minimal 0,75×ATR dan maksimal 3×ATR dari tengah zona entry.
-  if (stopRaw > mid - atr * 0.75) {
-    stopRaw = mid - atr * 0.75;
-    stopBasis += " Diturunkan ke tengah entry − 0,75×ATR agar tidak terkena noise harian.";
-  } else if (stopRaw < mid - atr * 3) {
-    stopRaw = mid - atr * 3;
-    stopBasis += " Dinaikkan ke tengah entry − 3×ATR agar risiko per transaksi terkendali.";
+  if (stopRaw > lowRaw - atr * 0.75) {
+    stopRaw = lowRaw - atr * 0.75;
+    stopBasis += " Diturunkan ke penopang − 0,75×ATR agar tidak terkena noise harian.";
+  } else if (stopRaw < lowRaw - atr * 3) {
+    stopRaw = lowRaw - atr * 3;
+    stopBasis += " Dinaikkan ke penopang − 3×ATR agar risiko terkendali.";
   }
   const stopP = roundTick(stopRaw, "down");
 
-  // Target: resistance yang memberi ruang ≥ 1,5×ATR; bila tak ada, proyeksi ATR / measured move.
-  const room = resistances.filter((r) => r >= entryHighP + atr * 1.5);
+  // 3. Target struktural — resistance, atau proyeksi dari PENOPANG (bukan dari harga terakhir),
+  //    agar harga yang naik tidak ikut "menaikkan" targetnya sendiri.
+  const minT1 = Math.max(lowRaw + atr * 2, price + atr * 0.5);
+  const room = resistances.filter((r) => r >= minT1);
   let t1Raw: number;
   let t1Basis: string;
   if (room[0] !== undefined) {
     t1Raw = room[0];
-    t1Basis = `Resistance ${rp(room[0])} (resistance pertama dengan ruang ≥ 1,5×ATR).`;
-  } else if (cycle.available && cycle.phase === "AKUMULASI" && cycle.range.high >= entryHighP + atr * 1.5) {
+    t1Basis = `Resistance ${rp(room[0])} — resistance pertama di atas harga dengan ruang ≥ 2×ATR dari penopang.`;
+  } else if (cycle.available && cycle.phase === "AKUMULASI" && cycle.range.high >= minT1) {
     t1Raw = cycle.range.high;
     t1Basis = `Puncak rentang 40H ${rp(cycle.range.high)}.`;
   } else {
-    t1Raw = entryHighP + atr * 3;
-    t1Basis = `Batas atas entry + 3×ATR (tidak ada resistance dengan ruang cukup).`;
+    t1Raw = lowRaw + atr * 4;
+    t1Basis = `Penopang ${rp(lowRaw)} + 4×ATR (tidak ada resistance di atas harga).`;
   }
   let t2Raw: number;
   let t2Basis: string;
@@ -185,11 +185,36 @@ export function buildTradePlan(
     t2Raw = Math.max(cycle.range.high + height, t1Raw + atr);
     t2Basis = `Measured move: puncak rentang ${rp(cycle.range.high)} + tinggi rentang ${rp(height)}.`;
   } else {
-    t2Raw = Math.max(entryHighP + atr * 5, t1Raw + atr);
-    t2Basis = `Batas atas entry + 5×ATR.`;
+    t2Raw = t1Raw + atr * 2;
+    t2Basis = `Target 1 + 2×ATR.`;
   }
   const t1P = roundTick(t1Raw, "down");
   const t2P = roundTick(t2Raw, "down");
+
+  // 4. Zona ideal: batas atas = stop + (TP1 − stop) ÷ (1 + R) → tepat R/R 1:R.
+  const idealMaxRaw = stopP + (t1P - stopP) / (1 + IDEAL_RR);
+  let hiRaw = Math.min(price, idealMaxRaw);
+  let loRaw = Math.min(lowRaw, hiRaw - atr * 0.25);
+  loRaw = Math.max(loRaw, stopP + atr * 0.5);
+  const noRoom = hiRaw < stopP + atr * 0.75;
+  if (noRoom) {
+    hiRaw = stopP + atr * 0.75;
+    loRaw = Math.min(loRaw, hiRaw);
+  }
+  const entryHighP = roundTick(hiRaw, "down");
+  const entryLowP = Math.min(roundTick(loRaw, "nearest"), entryHighP);
+  const mid = (entryLowP + entryHighP) / 2;
+
+  const above = price > entryHighP * 1.003;
+  const belowZone = price < entryLowP * 0.997;
+  const priceVsZone: TradePlan["priceVsZone"] = above ? "DI_ATAS" : belowZone ? "DI_BAWAH" : "DALAM";
+  const distToZonePct = above ? ((price - entryHighP) / entryHighP) * 100 : belowZone ? ((price - entryLowP) / entryLowP) * 100 : 0;
+
+  const highBasis =
+    idealMaxRaw <= price
+      ? `Batas atas ideal = stop ${rp(stopP)} + (TP1 ${rp(t1P)} − stop) ÷ ${1 + IDEAL_RR} = ${rp(idealMaxRaw)} → R/R tepat 1:${IDEAL_RR}.` +
+        (above ? ` Harga sekarang ${rp(price)} sudah ${pct(distToZonePct)} di atasnya — jangan dikejar, antre beli di zona.` : "")
+      : `Harga sekarang ${rp(price)} masih di bawah batas ideal ${rp(idealMaxRaw)} (R/R 1:${IDEAL_RR}) — boleh dibeli hingga harga ini.`;
 
   const riskPct = ((mid - stopP) / mid) * 100;
   const rewardPct = ((t1P - mid) / mid) * 100;
@@ -201,8 +226,8 @@ export function buildTradePlan(
     price,
     atr,
     tick: idxTick(price),
-    entryLow: level(entryLowP, price, `${lowBasis} ${atrNote}.`, lowRaw),
-    entryHigh: level(entryHighP, price, "Harga penutupan terakhir — jangan mengejar di atas level ini."),
+    entryLow: level(entryLowP, price, `${lowBasis} ${atrNote}.`, loRaw),
+    entryHigh: level(entryHighP, price, highBasis, hiRaw),
     stopLoss: level(stopP, price, stopBasis, stopRaw),
     target1: level(t1P, price, t1Basis, t1Raw),
     target2: level(t2P, price, t2Basis, t2Raw),
@@ -213,6 +238,10 @@ export function buildTradePlan(
     riskReward2: rr2,
     riskRewardAtLow: entryLowP > stopP ? (t1P - entryLowP) / (entryLowP - stopP) : null,
     invalidation: `Rencana batal bila harga tutup di bawah ${rp(stopP)} — keluar tanpa menunggu.`,
+    idealRR: IDEAL_RR,
+    priceVsZone,
+    distToZonePct,
+    noRoom,
   };
 }
 
