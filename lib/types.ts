@@ -295,6 +295,7 @@ export interface AnalysisResult {
   momentum: MomentumReport;
   cycle: CycleReport;
   dataRec: DataRecommendation;
+  market?: RelativeStrength;
   council: CouncilVerdict;
   ai?: CouncilAI;
   dataQuality: { sources: string[]; warnings: string[]; completeness: number };
@@ -422,4 +423,47 @@ export interface ScreenerResult {
   scanned: number;
   failed: string[];
   rows: ScreenerRow[];
+}
+
+/* ------------------------------------------------------------------ */
+/* IHSG (Indeks Harga Saham Gabungan)                                    */
+/* ------------------------------------------------------------------ */
+
+export interface IhsgReport {
+  symbol: string; // ^JKSE
+  price: number;
+  change: number;
+  changePct: number;
+  updatedAt: number; // waktu candle terakhir
+  returns: { d1: number | null; d5: number | null; d20: number | null; d60: number | null; ytd: number | null; y1: number | null };
+  high52w: number;
+  low52w: number;
+  ma20: number | null;
+  ma50: number | null;
+  ma200: number | null;
+  rsi: number | null;
+  trend: TechnicalReport["trend"];
+  trendStrength: string;
+  techScore: number;
+  techBreakdown: TechnicalReport["breakdown"];
+  supports: number[];
+  resistances: number[];
+  cycle: CycleReport;
+  spark: number[];
+  candles?: Candle[];
+}
+
+/** Kinerja saham dibanding IHSG pada periode yang sama (selisih poin persen). */
+export interface RelativeStrength {
+  ihsgPrice: number;
+  ihsgChangePct: number;
+  stock20: number | null;
+  ihsg20: number | null;
+  rs20: number | null;
+  stock60: number | null;
+  ihsg60: number | null;
+  rs60: number | null;
+  stock250: number | null;
+  ihsg250: number | null;
+  rs250: number | null;
 }

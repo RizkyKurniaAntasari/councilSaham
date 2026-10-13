@@ -321,7 +321,7 @@ export default function PriceChart({
             {activeChange.toFixed(2).replace(".", ",")}%
           </span>
           <span className="text-slate-500">
-            Vol <span className="text-slate-200">{fmtCompact(active.v, "")}</span>
+            Vol <span className="text-slate-200">{active.v > 0 ? fmtCompact(active.v, "") : "—"}</span>
           </span>
           {showMa20 && (
             <span className="inline-flex items-center gap-1.5 text-slate-500">

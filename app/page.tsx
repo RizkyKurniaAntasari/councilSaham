@@ -1,4 +1,5 @@
 import Link from "next/link";
+import IhsgCard from "@/components/IhsgCard";
 import SearchBar from "@/components/SearchBar";
 import { IDX_INDEX, POPULAR_TICKERS } from "@/data/idx-tickers";
 
@@ -84,6 +85,10 @@ export default function HomePage() {
 
         <div className="mx-auto mt-8 max-w-2xl">
           <SearchBar size="lg" autoFocus />
+        </div>
+
+        <div className="mx-auto mt-6 max-w-2xl text-left">
+          <IhsgCard />
         </div>
 
         <div className="mt-5">

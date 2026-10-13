@@ -4,6 +4,8 @@ import { buildCycle } from "./cycle";
 import { clamp, pivotLevels } from "./indicators";
 import { buildRecommendation } from "./recommend";
 import { buildTradePlan } from "./tradeplan";
+import { getIhsg } from "./ihsg";
+import type { IhsgReport } from "./types";
 import { buildIndicators } from "./technical";
 import type { Candle, ScreenerResult, ScreenerRow } from "./types";
 import { fetchChart, toYahooSymbol } from "./yahoo";
@@ -104,7 +106,7 @@ function trendingUp(candles: Candle[], ind: ReturnType<typeof buildIndicators>, 
   return { score: Math.round(clamp(score)), reasons };
 }
 
-async function scanOne(info: IdxTicker): Promise<ScreenerRow | null> {
+async function scanOne(info: IdxTicker, ihsg: IhsgReport | null): Promise<ScreenerRow | null> {
   const { candles } = await fetchChart(toYahooSymbol(info.code), "1y", "1d");
   if (candles.length < 60) return null;
 
@@ -117,7 +119,13 @@ async function scanOne(info: IdxTicker): Promise<ScreenerRow | null> {
   const cycle = buildCycle(candles, { timeline: false });
   const { supports, resistances } = pivotLevels(candles);
   const plan = buildTradePlan(ind, { price, supports, resistances, cycle });
-  const rec = buildRecommendation(cycle, ind, { price, avgValue20, plan });
+  const rec = buildRecommendation(cycle, ind, {
+    price,
+    avgValue20,
+    plan,
+    rs60:
+      ihsg && ind.return60d !== null && ihsg.returns.d60 !== null ? { stock: ind.return60d, ihsg: ihsg.returns.d60 } : null,
+  });
   const tr = trending(candles, ind);
   const trUp = trendingUp(candles, ind, tr.surge);
 
@@ -162,7 +170,8 @@ async function scanOne(info: IdxTicker): Promise<ScreenerRow | null> {
 }
 
 export async function runScreener(universe: IdxTicker[] = IDX_TICKERS): Promise<ScreenerResult> {
-  return cached(`screener:v4:${universe.length}`, 10 * 60 * 1000, async () => {
+  return cached(`screener:v5:${universe.length}`, 10 * 60 * 1000, async () => {
+    const ihsg = await getIhsg().catch(() => null);
     const rows: ScreenerRow[] = [];
     const failed: string[] = [];
     let cursor = 0;
@@ -171,7 +180,7 @@ export async function runScreener(universe: IdxTicker[] = IDX_TICKERS): Promise<
       while (cursor < universe.length) {
         const info = universe[cursor++];
         try {
-          const row = await scanOne(info);
+          const row = await scanOne(info, ihsg);
           if (row) rows.push(row);
           else failed.push(info.code);
         } catch {

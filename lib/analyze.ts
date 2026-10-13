@@ -2,6 +2,7 @@ import { IDX_INDEX } from "../data/idx-tickers";
 import { buildOwnership, buildProfile, buildQuote } from "./company";
 import { buildCouncil } from "./council";
 import { buildCycle } from "./cycle";
+import { getIhsg, relativeStrength } from "./ihsg";
 import { buildFundamental } from "./fundamental";
 import { llmEnabled, mergeAiNarrative, synthesizeCouncil } from "./llm";
 import { fetchNews } from "./news";
@@ -42,12 +43,13 @@ export async function analyze(
 
   const localName = IDX_INDEX.get(ticker)?.name ?? ticker;
 
-  const [chartResult, qs, newsEarly] = await Promise.all([
+  const [chartResult, qs, newsEarly, ihsg] = await Promise.all([
     fetchChart(symbol, "2y", "1d").catch((err: unknown) => {
       throw err instanceof Error ? err : new Error("gagal memuat data harga");
     }),
     fetchQuoteSummary(symbol).catch(() => null),
     fetchNews(ticker, localName).catch(() => EMPTY_NEWS),
+    getIhsg().catch(() => null),
   ]);
 
   const { candles, meta } = chartResult;
@@ -90,7 +92,14 @@ export async function analyze(
           }
         : { entry: null, stopLoss: plan.stopLoss.price, target1: plan.target1.price, target2: null, riskRewardRatio: null };
   }
-  const dataRec = buildRecommendation(cycle, technical.indicators, { price: lastPrice, avgValue20, plan });
+  const market = ihsg ? relativeStrength(technical.indicators, ihsg) : undefined;
+  const dataRec = buildRecommendation(cycle, technical.indicators, {
+    price: lastPrice,
+    avgValue20,
+    plan,
+    rs60:
+      market && market.stock60 !== null && market.ihsg60 !== null ? { stock: market.stock60, ihsg: market.ihsg60 } : null,
+  });
   let council = buildCouncil(fundamental, technical, news, momentum, quote, plan);
 
   const sources: string[] = ["Yahoo Finance (harga & OHLCV)"];
@@ -121,6 +130,7 @@ export async function analyze(
     momentum,
     cycle,
     dataRec,
+    market,
     council,
     dataQuality: { sources, warnings, completeness },
   };

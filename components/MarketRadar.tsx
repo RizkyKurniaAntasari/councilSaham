@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { fmtCompact, fmtDateTime, fmtNumber, fmtPct } from "@/lib/format";
 import type { CyclePhase, RecAction, ScreenerResult, ScreenerRow } from "@/lib/types";
 import { PHASE_META, PHASE_ORDER, PhaseBadge, RecBadge, Sparkline } from "./cycle-ui";
+import IhsgCard from "./IhsgCard";
 import { scoreColor } from "./ui";
 
 type Tab = "rekomendasi" | "trending-naik" | "trending" | "akumulasi" | "siklus";
@@ -626,7 +627,10 @@ export default function MarketRadar() {
 
       {data && (
         <>
-          <MarketBreadth rows={filtered} />
+          <div className="grid gap-4 lg:grid-cols-2">
+            <IhsgCard />
+            <MarketBreadth rows={filtered} />
+          </div>
 
           {topPicks.length > 0 && (
             <div className="no-scrollbar -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0">

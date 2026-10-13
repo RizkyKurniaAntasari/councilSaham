@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import IhsgTicker from "@/components/IhsgTicker";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -37,8 +38,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 AA
               </span>
               <span className="flex flex-col leading-none">
-                <span className="text-base font-bold tracking-tight text-white">AASaham</span>
-                <span className="hidden text-[10px] uppercase tracking-[0.18em] text-slate-500 min-[400px]:block">
+                <span className="hidden text-base font-bold tracking-tight text-white min-[420px]:block">AASaham</span>
+                <span className="hidden text-[10px] uppercase tracking-[0.18em] text-slate-500 min-[420px]:block">
                   Analisis Saham IDX
                 </span>
               </span>
@@ -50,11 +51,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               >
                 Beranda
               </Link>
+              <IhsgTicker />
               <Link
                 href="/pasar"
+                aria-label="Radar Pasar"
                 className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-medium text-slate-200 transition hover:bg-white/10 hover:text-white sm:border-transparent sm:bg-transparent sm:font-normal sm:text-slate-300"
               >
-                📡 Radar Pasar
+                📡 <span className="hidden min-[420px]:inline">Radar </span>
+                <span className="hidden sm:inline">Pasar</span>
               </Link>
             </nav>
           </div>

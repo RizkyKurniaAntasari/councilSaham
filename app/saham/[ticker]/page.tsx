@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import AnalysisView from "@/components/AnalysisView";
 import { IDX_INDEX } from "@/data/idx-tickers";
 
@@ -29,5 +30,6 @@ export default async function StockPage({
   params: Promise<{ ticker: string }>;
 }) {
   const ticker = clean((await params).ticker);
+  if (ticker === "IHSG" || ticker === "JKSE" || ticker === "JCI") redirect("/ihsg");
   return <AnalysisView ticker={ticker} />;
 }

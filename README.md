@@ -12,6 +12,10 @@ Aplikasi Next.js untuk menganalisis emiten Bursa Efek Indonesia. Cari satu kode 
 - **Siklus saham (Wyckoff)** — posisi emiten dalam 4 siklus: Akumulasi, Mark Up, Distribusi, Mark Down
 - **Radar Pasar** (`/pasar`) — saham trending, saham di tahap akumulasi, peta 4 siklus, dan rekomendasi berbasis data untuk seluruh daftar emiten
 
+## IHSG
+
+Halaman `/ihsg` (juga lewat pencarian "IHSG" / "JCI") menampilkan IDX Composite (`^JKSE`): grafik, return 5H–1 tahun & YTD, fase siklus pasar, skor teknikal dengan rinciannya, serta support/resistance. Nilai IHSG tampil di header setiap halaman. Di halaman saham, blok **Kinerja vs IHSG** menunjukkan selisih return saham terhadap indeks (20H, 60H, 1 tahun); selisih 60H > +5 poin menambah 3 poin skor rekomendasi data, < −5 poin mengurangi 3 poin.
+
 ## Radar Pasar & 4 Siklus Saham
 
 Halaman `/pasar` memindai OHLCV 1 tahun seluruh emiten di `data/idx-tickers.ts` (hasil di-cache 10 menit), lalu menyajikan:

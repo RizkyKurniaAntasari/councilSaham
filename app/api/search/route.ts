@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { IDX_TICKERS, POPULAR_TICKERS } from "@/data/idx-tickers";
+import { isIhsgQuery } from "@/lib/ihsg";
 import { searchSymbols } from "@/lib/yahoo";
 
 export const runtime = "nodejs";
@@ -48,5 +49,8 @@ export async function GET(req: Request) {
     .filter((r) => !seen.has(r.ticker))
     .slice(0, 6);
 
-  return NextResponse.json({ results: [...local, ...fromExchange] });
+  const index: SearchHit[] = isIhsgQuery(q)
+    ? [{ ticker: "IHSG", name: "Indeks Harga Saham Gabungan (IDX Composite)", sector: "Indeks", source: "lokal" }]
+    : [];
+  return NextResponse.json({ results: [...index, ...local, ...fromExchange] });
 }

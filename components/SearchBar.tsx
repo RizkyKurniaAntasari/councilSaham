@@ -60,7 +60,8 @@ export default function SearchBar({
 
   const go = (ticker: string) => {
     setOpen(false);
-    router.push(`/saham/${ticker.toUpperCase()}`);
+    const t = ticker.trim().toUpperCase();
+    router.push(t === "IHSG" || t === "JKSE" || t === "^JKSE" ? "/ihsg" : `/saham/${t}`);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

@@ -45,7 +45,7 @@ function phaseBase(cycle: CycleReport): { base: number; why: string } {
 export function buildRecommendation(
   cycle: CycleReport,
   ind: IndicatorSet,
-  ctx: { price: number; avgValue20: number; plan: TradePlan },
+  ctx: { price: number; avgValue20: number; plan: TradePlan; rs60?: { stock: number; ihsg: number } | null },
 ): DataRecommendation {
   const { avgValue20, plan } = ctx;
   const items: ScoreItem[] = [];
@@ -126,6 +126,17 @@ export function buildRecommendation(
   if (ind.ma200 !== null) {
     const above = ctx.price > ind.ma200;
     add("Tren panjang (MA200)", above ? 2 : -2, `Harga ${above ? "di atas" : "di bawah"} MA200 ${rp(ind.ma200)}.`);
+  }
+
+  // 6b. Kekuatan relatif vs IHSG (60 hari bursa)
+  if (ctx.rs60) {
+    const gap = ctx.rs60.stock - ctx.rs60.ihsg;
+    const p = gap > 5 ? 3 : gap < -5 ? -3 : 0;
+    add(
+      "Kekuatan relatif vs IHSG",
+      p,
+      `Return 60H saham ${pct(ctx.rs60.stock)} vs IHSG ${pct(ctx.rs60.ihsg)} → selisih ${gap >= 0 ? "+" : "−"}${Math.abs(gap).toFixed(1).replace(".", ",")} poin (>+5 = +3, <−5 = −3).`,
+    );
   }
 
   // 7. Likuiditas
