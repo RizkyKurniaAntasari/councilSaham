@@ -2,6 +2,7 @@ import { IDX_INDEX } from "../data/idx-tickers";
 import { buildOwnership, buildProfile, buildQuote } from "./company";
 import { buildCouncil } from "./council";
 import { buildCycle } from "./cycle";
+import { buildEntrySignal } from "./entrysignal";
 import { getIhsg, relativeStrength } from "./ihsg";
 import { buildFundamental } from "./fundamental";
 import { llmEnabled, mergeAiNarrative, synthesizeCouncil } from "./llm";
@@ -92,6 +93,12 @@ export async function analyze(
           }
         : { entry: null, stopLoss: plan.stopLoss.price, target1: plan.target1.price, target2: null, riskRewardRatio: null };
   }
+  const entry = buildEntrySignal(candles, technical.indicators, {
+    supports: technical.supports,
+    resistances: technical.resistances,
+    plan,
+    cycle,
+  });
   const market = ihsg ? relativeStrength(technical.indicators, ihsg) : undefined;
   const dataRec = buildRecommendation(cycle, technical.indicators, {
     price: lastPrice,
@@ -99,8 +106,9 @@ export async function analyze(
     plan,
     rs60:
       market && market.stock60 !== null && market.ihsg60 !== null ? { stock: market.stock60, ihsg: market.ihsg60 } : null,
+    entry,
   });
-  let council = buildCouncil(fundamental, technical, news, momentum, quote, plan);
+  let council = buildCouncil(fundamental, technical, news, momentum, quote, plan, entry);
 
   const sources: string[] = ["Yahoo Finance (harga & OHLCV)"];
   const warnings: string[] = [];
@@ -130,6 +138,7 @@ export async function analyze(
     momentum,
     cycle,
     dataRec,
+    entry,
     market,
     council,
     dataQuality: { sources, warnings, completeness },

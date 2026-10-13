@@ -1,6 +1,6 @@
 import { clamp } from "./indicators";
 import { pct, positionSize, rp } from "./tradeplan";
-import type { CycleReport, DataRecommendation, IndicatorSet, RecAction, ScoreItem, TradePlan } from "./types";
+import type { CycleReport, DataRecommendation, EntrySignal, IndicatorSet, RecAction, ScoreItem, TradePlan } from "./types";
 
 /**
  * Rekomendasi berbasis data: skor 0–100 = basis fase siklus + penyesuaian
@@ -45,7 +45,13 @@ function phaseBase(cycle: CycleReport): { base: number; why: string } {
 export function buildRecommendation(
   cycle: CycleReport,
   ind: IndicatorSet,
-  ctx: { price: number; avgValue20: number; plan: TradePlan; rs60?: { stock: number; ihsg: number } | null },
+  ctx: {
+    price: number;
+    avgValue20: number;
+    plan: TradePlan;
+    rs60?: { stock: number; ihsg: number } | null;
+    entry?: EntrySignal | null;
+  },
 ): DataRecommendation {
   const { avgValue20, plan } = ctx;
   const items: ScoreItem[] = [];
@@ -139,6 +145,17 @@ export function buildRecommendation(
     );
   }
 
+  // 6c. Timing entry (struktur MA + pola candle + perlawanan pembeli)
+  if (ctx.entry) {
+    const e = ctx.entry;
+    const p = e.verdict === "SIAP" ? 4 : e.verdict === "BELUM" ? -2 : e.verdict === "HINDARI" ? -6 : 0;
+    add(
+      "Timing entry",
+      p,
+      `${e.label} (kesiapan ${e.score}/100): Siap Beli = +4, Tunggu = 0, Belum Ada Setup = −2, Hindari = −6.`,
+    );
+  }
+
   // 7. Likuiditas
   const liqM = avgValue20 / 1e9;
   if (avgValue20 < 1e9) add("Likuiditas", -10, `Nilai transaksi rata-rata 20H Rp${liqM.toFixed(2).replace(".", ",")} M < Rp1 M/hari.`);
@@ -187,6 +204,11 @@ export function buildRecommendation(
           : " Tunggu struktur harga yang lebih baik."),
     );
   }
+  const timingPending =
+    (action === "BELI" || action === "BELI_BERTAHAP") && ctx.entry && ctx.entry.verdict !== "SIAP";
+  if (timingPending && ctx.entry) {
+    warnings.unshift(`Jangan buru-buru — timing: ${ctx.entry.label}. ${ctx.entry.waitFor[0] ?? ""}`.trim());
+  }
   if (ind.atrPct !== null && ind.atrPct > 6) {
     warnings.push(`Volatilitas tinggi: ATR ${ind.atrPct.toFixed(1).replace(".", ",")}% dari harga — stop lebar, posisi diperkecil otomatis.`);
   }
@@ -199,7 +221,9 @@ export function buildRecommendation(
         : { pct: 0, basis: "Tidak ada alokasi baru pada aksi ini." };
 
   const horizon =
-    action === "BELI" || action === "BELI_BERTAHAP"
+    timingPending
+      ? `Tunggu konfirmasi timing dulu, lalu ${cycle.phase === "AKUMULASI" ? "cicil 1–3 bulan" : "ikuti tren 2–6 minggu"}`
+      : action === "BELI" || action === "BELI_BERTAHAP"
       ? cycle.phase === "AKUMULASI"
         ? "1–3 bulan — cicil di zona entry, tambah saat breakout puncak rentang"
         : "2–6 minggu — ikuti tren, beli saat pullback ke zona entry"

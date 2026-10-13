@@ -4,6 +4,7 @@ import { buildCycle } from "./cycle";
 import { clamp, pivotLevels } from "./indicators";
 import { buildRecommendation } from "./recommend";
 import { buildTradePlan } from "./tradeplan";
+import { buildEntrySignal } from "./entrysignal";
 import { getIhsg } from "./ihsg";
 import type { IhsgReport } from "./types";
 import { buildIndicators } from "./technical";
@@ -119,13 +120,20 @@ async function scanOne(info: IdxTicker, ihsg: IhsgReport | null): Promise<Screen
   const cycle = buildCycle(candles, { timeline: false });
   const { supports, resistances } = pivotLevels(candles);
   const plan = buildTradePlan(ind, { price, supports, resistances, cycle });
+  const entry = buildEntrySignal(candles, ind, { supports, resistances, plan, cycle });
   const rec = buildRecommendation(cycle, ind, {
     price,
     avgValue20,
     plan,
     rs60:
       ihsg && ind.return60d !== null && ihsg.returns.d60 !== null ? { stock: ind.return60d, ihsg: ihsg.returns.d60 } : null,
+    entry,
   });
+  // Pola utama untuk ditampilkan: abaikan yang sudah gagal dikonfirmasi.
+  const bestPattern =
+    entry.patterns
+      .filter((p) => p.followThrough !== false)
+      .sort((a, b) => Number(b.bullish) - Number(a.bullish) || b.strength - a.strength)[0] ?? null;
   const tr = trending(candles, ind);
   const trUp = trendingUp(candles, ind, tr.surge);
 
@@ -165,12 +173,30 @@ async function scanOne(info: IdxTicker, ihsg: IhsgReport | null): Promise<Screen
       summary: cycle.summary,
     },
     rec: (({ plan: _plan, ...rest }) => rest)(rec),
+    timing: {
+      verdict: entry.verdict,
+      label: entry.label,
+      score: entry.score,
+      situation: entry.situation,
+      pattern: bestPattern
+        ? {
+            name: bestPattern.name,
+            bullish: bestPattern.bullish,
+            barsAgo: bestPattern.barsAgo,
+            strength: bestPattern.strength,
+            followThrough: bestPattern.followThrough,
+            volumeConfirmed: bestPattern.volumeConfirmed,
+          }
+        : null,
+      waitFor: entry.waitFor[0] ?? null,
+      trigger: entry.trigger,
+    },
     spark: candles.slice(-60).map((c) => c.c),
   };
 }
 
 export async function runScreener(universe: IdxTicker[] = IDX_TICKERS): Promise<ScreenerResult> {
-  return cached(`screener:v5:${universe.length}`, 10 * 60 * 1000, async () => {
+  return cached(`screener:v7:${universe.length}`, 10 * 60 * 1000, async () => {
     const ihsg = await getIhsg().catch(() => null);
     const rows: ScreenerRow[] = [];
     const failed: string[] = [];

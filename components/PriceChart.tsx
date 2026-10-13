@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { sma } from "@/lib/indicators";
 import { fmtCompact, fmtInt } from "@/lib/format";
-import type { Candle } from "@/lib/types";
+import type { Candle, CandlePattern } from "@/lib/types";
 
 const RANGES = [
   { key: "1B", label: "1B", days: 22 },
@@ -87,17 +87,26 @@ export default function PriceChart({
   supports = [],
   resistances = [],
   currency = "IDR",
+  patterns = [],
 }: {
   candles: Candle[];
   supports?: number[];
   resistances?: number[];
   currency?: string;
+  /** Pola candlestick untuk ditandai di grafik (▲ bullish di bawah candle, ▼ bearish di atas). */
+  patterns?: CandlePattern[];
 }) {
   const [rangeKey, setRangeKey] = useState<RangeKey>("6B");
   const [mode, setMode] = useState<"candle" | "area">("candle");
   const [showMa20, setShowMa20] = useState(true);
   const [showMa50, setShowMa50] = useState(true);
   const [showLevels, setShowLevels] = useState(true);
+  const [showPatterns, setShowPatterns] = useState(true);
+  const patternsByT = useMemo(() => {
+    const map = new Map<number, CandlePattern[]>();
+    for (const p of patterns) map.set(p.t, [...(map.get(p.t) ?? []), p]);
+    return map;
+  }, [patterns]);
   const [hover, setHover] = useState<{ i: number; y: number } | null>(null);
 
   // Grafik digambar dalam piksel asli kontainer — tanpa skala viewBox,
@@ -323,6 +332,12 @@ export default function PriceChart({
           <span className="text-slate-500">
             Vol <span className="text-slate-200">{active.v > 0 ? fmtCompact(active.v, "") : "—"}</span>
           </span>
+          {showPatterns &&
+            (patternsByT.get(active.t) ?? []).map((p) => (
+              <span key={p.key} className={`font-semibold ${p.bullish ? "text-bull" : "text-bear"}`}>
+                {p.bullish ? "▲" : "▼"} {p.name}
+              </span>
+            ))}
           {showMa20 && (
             <span className="inline-flex items-center gap-1.5 text-slate-500">
               <span className="h-2 w-2 rounded-full" style={{ backgroundColor: MA20_COLOR }} />
@@ -355,6 +370,12 @@ export default function PriceChart({
         <Toggle on={showLevels} onClick={() => setShowLevels((v) => !v)}>
           <span className="text-bull">S</span>/<span className="text-bear">R</span> Support &amp; Resistance
         </Toggle>
+        {patterns.length > 0 && (
+          <Toggle on={showPatterns} onClick={() => setShowPatterns((v) => !v)}>
+            <span className="text-bull">▲</span>
+            <span className="text-bear">▼</span> Pola candle
+          </Toggle>
+        )}
       </div>
 
       <div ref={boxRef} className="relative w-full select-none" style={{ height: H }}>
@@ -530,6 +551,36 @@ export default function PriceChart({
               )}
             </g>
 
+            {/* Penanda pola candlestick */}
+            {showPatterns && mode === "candle" && (
+              <g clipPath="url(#priceClip)" pointerEvents="none">
+                {data.map((c, i) => {
+                  const ps = patternsByT.get(c.t);
+                  if (!ps) return null;
+                  const x = view.x(i);
+                  const s = Math.max(4, Math.min(6, view.step * 0.6));
+                  return (
+                    <g key={`p-${i}`}>
+                      {ps.some((p) => p.bullish) && (
+                        <path
+                          d={`M${x},${view.y(c.l) + 5} l${s},${s * 1.6} l${-s * 2},0 z`}
+                          fill={BULL}
+                          opacity={0.95}
+                        />
+                      )}
+                      {ps.some((p) => !p.bullish) && (
+                        <path
+                          d={`M${x},${view.y(c.h) - 5} l${s},${-s * 1.6} l${-s * 2},0 z`}
+                          fill={BEAR}
+                          opacity={0.95}
+                        />
+                      )}
+                    </g>
+                  );
+                })}
+              </g>
+            )}
+
             {/* Garis & label harga terakhir */}
             {lastCandle && (
               <>
@@ -611,6 +662,7 @@ export default function PriceChart({
       <p className="mt-3 text-[11px] text-slate-500">
         Harga dalam {currency}. Arahkan kursor (atau sentuh di ponsel) untuk melihat detail tiap hari di bilah atas
         grafik. Garis putus hijau = support, merah = resistance (deteksi swing pivot otomatis).
+        {patterns.length > 0 && " ▲/▼ = pola candlestick bullish/bearish yang valid menurut lokasinya."}
       </p>
     </div>
   );

@@ -8,6 +8,7 @@ import type {
   NewsReport,
   QuoteSnapshot,
   Stance,
+  EntrySignal,
   TechnicalReport,
   TradePlan,
 } from "./types";
@@ -47,6 +48,7 @@ export function buildCouncil(
   momentum: MomentumReport,
   quote: QuoteSnapshot,
   plan?: TradePlan,
+  entry?: EntrySignal,
 ): CouncilVerdict {
   const ind = technical.indicators;
   const members: CouncilMember[] = [];
@@ -442,7 +444,7 @@ export function buildCouncil(
     consensus,
     disagreement,
     members,
-    actionPlan: buildActionPlan(score, stance, plan, position, horizon, quote.price),
+    actionPlan: buildActionPlan(score, stance, plan, position, horizon, quote.price, entry),
     keyReasons,
     keyRisks,
     watchlist,
@@ -460,6 +462,7 @@ function buildActionPlan(
   position: { pct: number; basis: string },
   horizon: string,
   price: number,
+  entry?: EntrySignal,
 ): CouncilVerdict["actionPlan"] {
   const buyStance = stance === "STRONG_BUY" || stance === "BUY";
   if (!plan) {
@@ -482,7 +485,9 @@ function buildActionPlan(
           ? plan.entryLow && plan.riskRewardAtLow !== null && plan.riskRewardAtLow >= 1
             ? `Sikap beli, tetapi R/R dari tengah zona hanya 1:${plan.riskReward1.toFixed(2).replace(".", ",")}. Pasang antrean beli hanya di ${fmtPrice(plan.entryLow.price)} (R/R 1:${plan.riskRewardAtLow.toFixed(2).replace(".", ",")}); jangan beli di harga sekarang.`
             : `Sikap beli, tetapi R/R 1:${plan.riskReward1.toFixed(2).replace(".", ",")} < 1 di seluruh zona entry — tunda pembelian.`
-          : `Cicil di zona ${zone}, jangan mengejar di atas ${fmtPrice(plan.entryHigh?.price)}.`
+          : entry && entry.verdict !== "SIAP"
+            ? `Sikap beli, tetapi timing belum matang (${entry.label}). ${entry.waitFor[0] ?? ""} Setelah syarat terpenuhi, cicil di zona ${zone}.`
+            : `Cicil di zona ${zone}, jangan mengejar di atas ${fmtPrice(plan.entryHigh?.price)}.`
         : stance === "HOLD"
           ? `Belum beli — skor dewan ${score} masih di bawah ambang Beli (63). Bila skor naik ke ≥63, gunakan zona entry ${zone}.`
           : `Tidak membuka posisi baru — skor dewan ${score} di bawah ambang Tahan (45).`,

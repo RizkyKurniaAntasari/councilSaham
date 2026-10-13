@@ -1,4 +1,4 @@
-import type { CyclePhase, RecAction } from "@/lib/types";
+import type { CyclePhase, EntryVerdict, RecAction } from "@/lib/types";
 
 export const PHASE_ORDER: CyclePhase[] = ["AKUMULASI", "MARKUP", "DISTRIBUSI", "MARKDOWN"];
 
@@ -43,6 +43,27 @@ export const REC_META: Record<RecAction, { label: string; cls: string }> = {
   AMBIL_UNTUNG: { label: "Ambil Untung", cls: "border-warn/35 bg-warn/12 text-warn" },
   HINDARI: { label: "Hindari", cls: "border-bear/35 bg-bear/12 text-bear" },
 };
+
+export const TIMING_META: Record<EntryVerdict, { label: string; cls: string; icon: string }> = {
+  SIAP: { label: "Siap Beli", cls: "border-bull/40 bg-bull/15 text-bull", icon: "✅" },
+  TUNGGU: { label: "Tunggu Konfirmasi", cls: "border-warn/40 bg-warn/12 text-warn", icon: "⏳" },
+  BELUM: { label: "Belum Ada Setup", cls: "border-white/15 bg-white/5 text-slate-300", icon: "➖" },
+  HINDARI: { label: "Hindari Dulu", cls: "border-bear/40 bg-bear/12 text-bear", icon: "⛔" },
+};
+
+export function TimingBadge({ verdict, small }: { verdict: EntryVerdict; small?: boolean }) {
+  const m = TIMING_META[verdict];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full border font-semibold ${m.cls} ${
+        small ? "px-2 py-0.5 text-[10px]" : "px-2.5 py-1 text-[11px]"
+      }`}
+    >
+      <span aria-hidden>{m.icon}</span>
+      {m.label}
+    </span>
+  );
+}
 
 export function PhaseBadge({ phase, small }: { phase: CyclePhase; small?: boolean }) {
   const m = PHASE_META[phase];

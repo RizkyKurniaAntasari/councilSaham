@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fmtCompact, fmtDateTime, fmtNumber, fmtPct } from "@/lib/format";
 import type { CyclePhase, RecAction, ScreenerResult, ScreenerRow } from "@/lib/types";
-import { PHASE_META, PHASE_ORDER, PhaseBadge, RecBadge, Sparkline } from "./cycle-ui";
+import { PHASE_META, PHASE_ORDER, PhaseBadge, RecBadge, Sparkline, TimingBadge } from "./cycle-ui";
 import IhsgCard from "./IhsgCard";
 import { scoreColor } from "./ui";
 
-type Tab = "rekomendasi" | "trending-naik" | "trending" | "akumulasi" | "siklus";
+type Tab = "rekomendasi" | "sinyal" | "trending-naik" | "trending" | "akumulasi" | "siklus";
 
 const TABS: { id: Tab; label: string; icon: string; desc: string }[] = [
   {
@@ -16,6 +16,12 @@ const TABS: { id: Tab; label: string; icon: string; desc: string }[] = [
     label: "Rekomendasi",
     icon: "🎯",
     desc: "Peringkat saham berdasarkan gabungan fase siklus, aliran dana, momentum, dan likuiditas — lengkap dengan area entry, stop loss, dan target.",
+  },
+  {
+    id: "sinyal",
+    label: "Sinyal Beli",
+    icon: "🕯️",
+    desc: "Timing entry: saham yang struktur MA-nya mendukung atau baru membentuk pola pembalikan bullish (Hammer, Morning Star, Bullish Engulfing, dll.) di lokasi yang tepat. Bukan berarti langsung beli — baca syarat yang ditunggu di tiap baris.",
   },
   {
     id: "trending-naik",
@@ -408,6 +414,119 @@ function MobileList({ rows, kind }: { rows: ScreenerRow[]; kind: MobileKind }) {
   );
 }
 
+/** Tab Sinyal Beli: kartu di ponsel, tabel di layar lebar. */
+function SignalList({ rows }: { rows: ScreenerRow[] }) {
+  if (!rows.length) {
+    return (
+      <p className="px-4 py-10 text-center text-sm text-slate-500">
+        Belum ada saham dengan sinyal timing yang valid hari ini. Ini wajar saat pasar tertekan — lebih baik menunggu
+        daripada memaksakan entry.
+      </p>
+    );
+  }
+  const patternText = (r: ScreenerRow) => {
+    const p = r.timing.pattern;
+    if (!p) return "—";
+    const when = p.barsAgo === 0 ? "hari ini" : `${p.barsAgo} hari lalu`;
+    const conf = p.followThrough === true ? "terkonfirmasi" : p.followThrough === false ? "gagal" : "menunggu konfirmasi";
+    return `${p.bullish ? "▲" : "▼"} ${p.name} · ${when} · ${conf}${p.volumeConfirmed ? " · vol ✓" : ""}`;
+  };
+  return (
+    <>
+      <ul className="divide-y divide-white/5 md:hidden">
+        {rows.map((r, i) => (
+          <li key={r.ticker}>
+            <Link href={`/saham/${r.ticker}#timing`} className="block px-4 py-3.5 transition active:bg-white/[0.05]">
+              <div className="flex items-center gap-3">
+                <span className="w-5 shrink-0 text-xs tabular text-slate-500">{i + 1}</span>
+                <span className="grid h-9 w-14 shrink-0 place-items-center rounded-lg bg-brandx/15 text-xs font-bold tracking-wide text-brandx">
+                  {r.ticker}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium text-slate-100">{r.name}</span>
+                  <span className="block text-[11px] tabular text-slate-500">
+                    {fmtNumber(r.price, 0)} · <Pct v={r.change1d} />
+                  </span>
+                </span>
+                <ScorePill score={r.timing.score} />
+              </div>
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5 pl-8">
+                <TimingBadge verdict={r.timing.verdict} small />
+                <RecBadge action={r.rec.action} small />
+              </div>
+              {r.timing.pattern && (
+                <p className={`mt-2 pl-8 text-xs font-semibold ${r.timing.pattern.bullish ? "text-bull" : "text-bear"}`}>
+                  {patternText(r)}
+                </p>
+              )}
+              <p className="mt-1 pl-8 text-[11px] leading-snug text-slate-400">{r.timing.situation}</p>
+              {r.timing.waitFor && (
+                <p
+                  className={`mt-1 pl-8 text-[11px] leading-snug ${r.timing.verdict === "SIAP" ? "text-bull/90" : "text-warn/90"}`}
+                >
+                  {r.timing.verdict === "SIAP" ? "▶" : "⏳"} {r.timing.waitFor}
+                </p>
+              )}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden overflow-x-auto md:block">
+        <table className="w-full min-w-[1080px]">
+          <thead className="border-b border-white/10">
+            <tr>
+              <Th>#</Th>
+              <Th>Emiten</Th>
+              <Th>Kesiapan</Th>
+              <Th>Timing</Th>
+              <Th>Pola candle</Th>
+              <Th>Posisi vs MA</Th>
+              <Th>Syarat / eksekusi</Th>
+              <Th>Rekomendasi</Th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/5">
+            {rows.map((r, i) => (
+              <tr key={r.ticker} className="align-top transition hover:bg-white/[0.03]">
+                <Td className="text-slate-500">{i + 1}</Td>
+                <td className="px-3 py-2.5">
+                  <TickerCell r={r} />
+                </td>
+                <Td>
+                  <ScorePill score={r.timing.score} />
+                </Td>
+                <Td>
+                  <TimingBadge verdict={r.timing.verdict} small />
+                </Td>
+                <td
+                  className={`min-w-[200px] px-3 py-2.5 text-[11px] font-semibold leading-snug ${
+                    r.timing.pattern?.bullish ? "text-bull" : "text-bear"
+                  }`}
+                >
+                  {patternText(r)}
+                </td>
+                <td className="min-w-[240px] max-w-[320px] px-3 py-2.5 text-[11px] leading-snug text-slate-400">
+                  {r.timing.situation}
+                </td>
+                <td
+                  className={`min-w-[240px] max-w-[320px] px-3 py-2.5 text-[11px] leading-snug ${
+                    r.timing.verdict === "SIAP" ? "text-bull/90" : "text-warn/90"
+                  }`}
+                >
+                  {r.timing.waitFor ?? "—"}
+                </td>
+                <Td>
+                  <RecBadge action={r.rec.action} small />
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
 function CycleBoard({ rows }: { rows: ScreenerRow[] }) {
   return (
     <div className="grid gap-3 p-3 sm:gap-4 sm:p-4 md:grid-cols-2 xl:grid-cols-4">
@@ -550,6 +669,19 @@ export default function MarketRadar() {
           .filter((r) => REC_FILTERS[recFilter].value.includes(r.rec.action))
           .sort((a, b) => (recFilter === 2 ? a.rec.score - b.rec.score : b.rec.score - a.rec.score))
           .slice(0, 40);
+      case "sinyal": {
+        const rank = { SIAP: 0, TUNGGU: 1, BELUM: 2, HINDARI: 3 } as const;
+        return filtered
+          // Hanya saham yang rekomendasinya masih layak beli/pantau — timing bagus pada saham "Ambil Untung" bukan sinyal beli.
+          .filter((r) => r.rec.action !== "HINDARI" && r.rec.action !== "AMBIL_UNTUNG")
+          .filter(
+            (r) =>
+              r.timing.verdict === "SIAP" ||
+              (r.timing.verdict === "TUNGGU" && !!r.timing.pattern?.bullish && r.timing.pattern.barsAgo <= 2),
+          )
+          .sort((a, b) => rank[a.timing.verdict] - rank[b.timing.verdict] || b.timing.score - a.timing.score)
+          .slice(0, 40);
+      }
       case "trending-naik":
         return filtered
           .filter((r) => r.upTrendingScore > 0)
@@ -761,6 +893,7 @@ export default function MarketRadar() {
                 <RecommendationTable rows={view} />
               </>
             )}
+            {tab === "sinyal" && <SignalList rows={view} />}
             {tab === "trending-naik" && (
               <>
                 <MobileList rows={view} kind="trendUp" />

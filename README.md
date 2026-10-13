@@ -12,6 +12,16 @@ Aplikasi Next.js untuk menganalisis emiten Bursa Efek Indonesia. Cari satu kode 
 - **Siklus saham (Wyckoff)** — posisi emiten dalam 4 siklus: Akumulasi, Mark Up, Distribusi, Mark Down
 - **Radar Pasar** (`/pasar`) — saham trending, saham di tahap akumulasi, peta 4 siklus, dan rekomendasi berbasis data untuk seluruh daftar emiten
 
+## Timing Beli — pola candlestick & struktur MA
+
+Saham yang bagus belum tentu harus dibeli hari ini. Panel **Timing Beli** di halaman saham (dan tab **Sinyal Beli** di Radar Pasar) menilai kesiapan entry dari:
+
+- **Struktur MA** — posisi harga terhadap MA20/50/200, penembusan terbaru, dan penolakan (mis. *"menembus MA20 2 hari lalu tetapi tertahan MA50 Rp X"*).
+- **Pola candlestick** (`lib/candles.ts`) — Hammer, Inverted Hammer, Dragonfly Doji, Bullish Engulfing, Piercing Line, Bullish Harami, Morning Star, Three White Soldiers, serta pola bearish Shooting Star, Bearish Engulfing, Dark Cloud Cover, Evening Star. Pola hanya dihitung bila lokasinya tepat (setelah turun/naik atau saat menguji MA/support), lalu dinilai konfirmasi volume dan konfirmasi candle berikutnya.
+- **Perlawanan pembeli** — ekor bawah panjang, higher low, support yang bertahan, volume hari naik vs turun.
+
+Vonisnya *Siap Beli* (pola sudah terkonfirmasi atau struktur kuat dekat MA20), *Tunggu Konfirmasi*, *Belum Ada Setup*, atau *Hindari Dulu* — selalu disertai syarat konkret beserta harganya. Pola ditandai ▲/▼ di grafik.
+
 ## IHSG
 
 Halaman `/ihsg` (juga lewat pencarian "IHSG" / "JCI") menampilkan IDX Composite (`^JKSE`): grafik, return 5H–1 tahun & YTD, fase siklus pasar, skor teknikal dengan rinciannya, serta support/resistance. Nilai IHSG tampil di header setiap halaman. Di halaman saham, blok **Kinerja vs IHSG** menunjukkan selisih return saham terhadap indeks (20H, 60H, 1 tahun); selisih 60H > +5 poin menambah 3 poin skor rekomendasi data, < −5 poin mengurangi 3 poin.

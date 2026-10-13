@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { AnalysisResult, CouncilAI, CouncilVerdict } from "@/lib/types";
 import CouncilPanel from "./CouncilPanel";
 import CyclePanel from "./CyclePanel";
+import EntryPanel from "./EntryPanel";
 import FundamentalPanel from "./FundamentalPanel";
 import NewsPanel from "./NewsPanel";
 import OwnershipPanel from "./OwnershipPanel";
@@ -17,6 +18,7 @@ import TechnicalPanel from "./TechnicalPanel";
 const NAV = [
   { id: "dewan", label: "Dewan Analis" },
   { id: "siklus", label: "Siklus & Rekomendasi" },
+  { id: "timing", label: "Timing Beli" },
   { id: "momentum", label: "Momentum & Story" },
   { id: "grafik", label: "Grafik" },
   { id: "teknikal", label: "Teknikal" },
@@ -232,6 +234,8 @@ export default function AnalysisView({ ticker }: { ticker: string }) {
 
       {data.cycle && data.dataRec && <CyclePanel cycle={data.cycle} rec={data.dataRec} />}
 
+      {data.entry && <EntryPanel e={data.entry} price={data.candles[data.candles.length - 1].c} />}
+
       <StoryPanel momentum={data.momentum} aiNotes={data.ai?.pembacaan_story ?? []} />
 
       <div id="grafik" className="scroll-mt-24">
@@ -240,6 +244,7 @@ export default function AnalysisView({ ticker }: { ticker: string }) {
           supports={data.technical.supports}
           resistances={data.technical.resistances}
           currency={data.quote.currency}
+          patterns={data.entry?.history}
         />
       </div>
 

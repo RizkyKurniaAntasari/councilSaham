@@ -295,6 +295,7 @@ export interface AnalysisResult {
   momentum: MomentumReport;
   cycle: CycleReport;
   dataRec: DataRecommendation;
+  entry?: EntrySignal;
   market?: RelativeStrength;
   council: CouncilVerdict;
   ai?: CouncilAI;
@@ -414,6 +415,15 @@ export interface ScreenerRow {
   accumulationScore: number; // 0-100
   cycle: Pick<CycleReport, "phase" | "label" | "stage" | "confidence" | "scores" | "daysInPhase" | "range" | "summary">;
   rec: Omit<DataRecommendation, "plan">;
+  timing: {
+    verdict: EntryVerdict;
+    label: string;
+    score: number;
+    situation: string;
+    pattern: Pick<CandlePattern, "name" | "bullish" | "barsAgo" | "strength" | "followThrough" | "volumeConfirmed"> | null;
+    waitFor: string | null;
+    trigger: { label: string; price: number } | null;
+  };
   spark: number[];
 }
 
@@ -466,4 +476,59 @@ export interface RelativeStrength {
   stock250: number | null;
   ihsg250: number | null;
   rs250: number | null;
+}
+
+/* ------------------------------------------------------------------ */
+/* Timing entry: struktur MA + pola candlestick + perlawanan pembeli      */
+/* ------------------------------------------------------------------ */
+
+export interface CandlePattern {
+  key: string;
+  name: string;
+  bullish: boolean;
+  bars: number; // jumlah candle pembentuk pola
+  reliability: number; // 1 lemah · 2 sedang · 3 kuat (literatur umum)
+  meaning: string;
+  context: string; // kenapa pola ini relevan di lokasinya
+  t: number;
+  index: number;
+  barsAgo: number;
+  volumeConfirmed: boolean; // volume ≥ 1,2× rata-rata 20H
+  followThrough: boolean | null; // candle berikutnya menembus high/low pola (null = belum ada candle berikutnya)
+  strength: number; // 0–5
+  high: number;
+  low: number;
+}
+
+export type EntryVerdict = "SIAP" | "TUNGGU" | "BELUM" | "HINDARI";
+
+export interface EntryCheck {
+  label: string;
+  status: "ok" | "wait" | "bad";
+  detail: string;
+}
+
+export interface MaLevel {
+  label: "MA20" | "MA50" | "MA200";
+  value: number;
+  distPct: number; // harga vs MA, %
+  above: boolean;
+  slopePct: number | null; // kemiringan 10 hari
+}
+
+export interface EntrySignal {
+  verdict: EntryVerdict;
+  label: string;
+  score: number; // kesiapan 0–100
+  situation: string; // ringkasan posisi harga vs MA
+  maLevels: MaLevel[];
+  obstacle: { label: string; price: number; distPct: number } | null;
+  rejection: string | null;
+  patterns: CandlePattern[]; // pola ≤5 candle terakhir
+  history: CandlePattern[]; // ±120 hari, untuk penanda grafik
+  buyerSignals: string[];
+  checklist: EntryCheck[];
+  waitFor: string[];
+  trigger: { label: string; price: number } | null;
+  breakdown: ScoreItem[];
 }
