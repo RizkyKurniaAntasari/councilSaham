@@ -481,13 +481,15 @@ function buildActionPlan(
     return {
       horizon,
       entry: buyStance
-        ? plan.riskReward1 !== null && plan.riskReward1 < 1
+        ? entry && entry.verdict !== "SIAP"
+          ? entry.scenarios[0]
+            ? `Sikap beli, tetapi timing belum matang (${entry.label}). ${entry.scenarios[0].title}: ${entry.scenarios[0].condition} Setelah itu beli di zona ${fmtPrice(entry.scenarios[0].zoneLow)}–${fmtPrice(entry.scenarios[0].zoneHigh)} dengan stop ${fmtPrice(entry.scenarios[0].stop)}.${entry.scenarios[1] ? ` Alternatif — ${entry.scenarios[1].title.replace(/^[AB] · /, "")}: beli di ${fmtPrice(entry.scenarios[1].zoneLow)}–${fmtPrice(entry.scenarios[1].zoneHigh)}.` : ""}`
+            : `Sikap beli, tetapi timing belum matang (${entry.label}) — belum ada skenario masuk dengan R/R ≥ 1.`
+          : plan.riskReward1 !== null && plan.riskReward1 < 1
           ? plan.entryLow && plan.riskRewardAtLow !== null && plan.riskRewardAtLow >= 1
             ? `Sikap beli, tetapi R/R dari tengah zona hanya 1:${plan.riskReward1.toFixed(2).replace(".", ",")}. Pasang antrean beli hanya di ${fmtPrice(plan.entryLow.price)} (R/R 1:${plan.riskRewardAtLow.toFixed(2).replace(".", ",")}); jangan beli di harga sekarang.`
             : `Sikap beli, tetapi R/R 1:${plan.riskReward1.toFixed(2).replace(".", ",")} < 1 di seluruh zona entry — tunda pembelian.`
-          : entry && entry.verdict !== "SIAP"
-            ? `Sikap beli, tetapi timing belum matang (${entry.label}). ${entry.waitFor[0] ?? ""} Setelah syarat terpenuhi, cicil di zona ${zone}.`
-            : `Cicil di zona ${zone}, jangan mengejar di atas ${fmtPrice(plan.entryHigh?.price)}.`
+          : `Cicil di zona ${zone}, jangan mengejar di atas ${fmtPrice(plan.entryHigh?.price)}.`
         : stance === "HOLD"
           ? `Belum beli — skor dewan ${score} masih di bawah ambang Beli (63). Bila skor naik ke ≥63, gunakan zona entry ${zone}.`
           : `Tidak membuka posisi baru — skor dewan ${score} di bawah ambang Tahan (45).`,

@@ -20,7 +20,18 @@ Saham yang bagus belum tentu harus dibeli hari ini. Panel **Timing Beli** di hal
 - **Pola candlestick** (`lib/candles.ts`) — Hammer, Inverted Hammer, Dragonfly Doji, Bullish Engulfing, Piercing Line, Bullish Harami, Morning Star, Three White Soldiers, serta pola bearish Shooting Star, Bearish Engulfing, Dark Cloud Cover, Evening Star. Pola hanya dihitung bila lokasinya tepat (setelah turun/naik atau saat menguji MA/support), lalu dinilai konfirmasi volume dan konfirmasi candle berikutnya.
 - **Perlawanan pembeli** — ekor bawah panjang, higher low, support yang bertahan, volume hari naik vs turun.
 
-Vonisnya *Siap Beli* (pola sudah terkonfirmasi atau struktur kuat dekat MA20), *Tunggu Konfirmasi*, *Belum Ada Setup*, atau *Hindari Dulu* — selalu disertai syarat konkret beserta harganya. Pola ditandai ▲/▼ di grafik.
+Vonisnya *Siap Beli* (pola/pantulan sudah terkonfirmasi atau struktur kuat dekat MA20), *Tunggu Konfirmasi*, *Belum Ada Setup*, atau *Hindari Dulu*. Pola ditandai ▲/▼ di grafik; pola bearish yang sudah terealisasi (harga turun ≥ 0,75×ATR di bawahnya) tidak lagi dihitung.
+
+Syarat selalu berbentuk **skenario** yang konsisten — syarat, zona beli, stop, target, dan R/R dihitung bersama:
+
+- **Pantulan** — beli dekat harga sekarang setelah pembalikan dikonfirmasi (mis. *tutup di atas high candle pantulan dari MA50*). Bila harga sudah > 8% dari MA20, skenarionya pullback ke MA20.
+- **Tembus** — beli di zona *baru* tepat di atas MA/resistance yang ditembus, dengan stop & target yang dihitung ulang.
+
+Skenario dengan R/R < 1 tidak ditawarkan.
+
+### Siap Masuk (`/siap-masuk`)
+
+Daftar terpisah berisi saham yang timing-nya **sudah** Siap Beli, rekomendasinya bukan Ambil Untung/Hindari, R/R ≥ 1:1,2, dan likuid — lengkap dengan alasan, zona beli, stop loss, target, ukuran posisi, dan batas validitas setup. Bagian *Hampir siap* menampilkan saham yang tinggal satu pemicu (≤ 3% dari harga) dengan R/R ≥ 1:1,5.
 
 ## IHSG
 

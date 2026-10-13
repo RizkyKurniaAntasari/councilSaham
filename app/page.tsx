@@ -91,7 +91,10 @@ export default function HomePage() {
           <IhsgCard />
         </div>
 
-        <div className="mt-5">
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <Link href="/siap-masuk" className="btn border border-bull/30 bg-bull/10 text-bull hover:bg-bull/20">
+            ✅ Saham siap masuk hari ini
+          </Link>
           <Link href="/pasar" className="btn-ghost">
             📡 Buka Radar Pasar — saham trending, akumulasi & 4 siklus
           </Link>

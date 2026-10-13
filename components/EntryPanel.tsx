@@ -217,18 +217,60 @@ export default function EntryPanel({ e, price }: { e: EntrySignal; price: number
         </div>
 
         <div className="space-y-5">
-          <div className="rounded-2xl border border-warn/25 bg-warn/[0.06] p-4">
-            <p className="stat-label mb-2 text-warn">{e.verdict === "SIAP" ? "Eksekusi" : "Tunggu ini sebelum membeli"}</p>
-            <ol className="space-y-2.5">
-              {e.waitFor.map((w, i) => (
-                <li key={i} className="flex gap-2.5 text-sm leading-relaxed text-slate-200">
-                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-warn/20 text-[11px] font-bold text-warn">
-                    {i + 1}
-                  </span>
-                  <span>{w}</span>
-                </li>
-              ))}
-            </ol>
+          <div
+            className={`rounded-2xl border p-4 ${e.verdict === "SIAP" ? "border-bull/25 bg-bull/[0.06]" : "border-warn/25 bg-warn/[0.06]"}`}
+          >
+            <p className={`stat-label mb-2 ${e.verdict === "SIAP" ? "text-bull" : "text-warn"}`}>
+              {e.verdict === "SIAP" ? "Eksekusi" : "Skenario masuk — syarat dulu, baru beli"}
+            </p>
+            {e.scenarios.length ? (
+              <ul className="space-y-3">
+                {e.scenarios.map((sc) => (
+                  <li key={sc.key} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                    <p className="text-sm font-semibold text-white">{sc.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-300">
+                      <span className="font-semibold text-warn">Syarat · </span>
+                      {sc.condition}
+                    </p>
+                    <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs sm:grid-cols-4">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-slate-500">Zona beli</p>
+                        <p className="font-semibold tabular text-white">
+                          {fmtNumber(sc.zoneLow, 0)}–{fmtNumber(sc.zoneHigh, 0)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-slate-500">Stop loss</p>
+                        <p className="font-semibold tabular text-bear">{fmtNumber(sc.stop, 0)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-slate-500">Target</p>
+                        <p className="font-semibold tabular text-bull">{fmtNumber(sc.target, 0)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-slate-500">R/R</p>
+                        <p className="font-semibold tabular text-white">
+                          {sc.riskReward !== null ? `1:${sc.riskReward.toFixed(2).replace(".", ",")}` : "—"}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-[11px] leading-relaxed text-slate-500">{sc.basis}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-300">Belum ada skenario masuk yang masuk akal.</p>
+            )}
+            {e.waitFor.slice(e.scenarios.length).length > 0 && (
+              <ul className="mt-3 space-y-1.5">
+                {e.waitFor.slice(e.scenarios.length).map((w, i) => (
+                  <li key={i} className="flex gap-2 text-xs leading-relaxed text-slate-300">
+                    <span className="mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full bg-warn" />
+                    {w}
+                  </li>
+                ))}
+              </ul>
+            )}
             {e.trigger && (
               <p className="mt-3 rounded-lg bg-black/20 px-3 py-2 text-xs text-slate-300">
                 {e.verdict === "SIAP" ? "Batas validitas" : "Pemicu utama"}: <strong className="text-white">{e.trigger.label}</strong> —{" "}

@@ -3,8 +3,10 @@ import { clamp, sma } from "./indicators";
 import { roundTick } from "./tradeplan";
 import type {
   Candle,
+  CandlePattern,
   CycleReport,
   EntryCheck,
+  EntryScenario,
   EntrySignal,
   EntryVerdict,
   IndicatorSet,
@@ -131,9 +133,18 @@ export function buildEntrySignal(
     resistances: ctx.resistances,
     lookback: 120,
   });
+  const atr = ind.atr14 && ind.atr14 > 0 ? ind.atr14 : price * 0.03;
   const recent = history.filter((p) => p.barsAgo <= 4).sort((a, b) => a.barsAgo - b.barsAgo || b.strength - a.strength);
   const bestBull = recent.filter((p) => p.bullish && p.followThrough !== false).sort((a, b) => b.strength - a.strength)[0];
-  const bestBear = recent.filter((p) => !p.bullish && p.followThrough !== false).sort((a, b) => b.strength - a.strength)[0];
+  // Pola bearish yang sudah terealisasi — harga telah turun ≥ 0,75×ATR di bawah low pola —
+  // tidak lagi menjadi ancaman: penurunannya sudah terjadi.
+  const bearAll = recent.filter((p) => !p.bullish && p.followThrough !== false);
+  const isRealized = (p: CandlePattern) => price <= p.low - atr * 0.75;
+  const realizedBear = bearAll.find(isRealized);
+  const bestBear = bearAll.filter((p) => !isRealized(p)).sort((a, b) => b.strength - a.strength)[0];
+  if (realizedBear) {
+    situation += ` ${realizedBear.name} ${realizedBear.barsAgo} hari lalu sudah terealisasi — harga telah turun ${pc(((price - realizedBear.low) / realizedBear.low) * 100)} di bawah low pola, sehingga tidak lagi dihitung sebagai ancaman.`;
+  }
 
   /* ---------- 3. Perlawanan pembeli ---------- */
   const buyerSignals: string[] = [];
@@ -159,10 +170,28 @@ export function buildEntrySignal(
   const udv = downV > 0 ? upV / downV : upV > 0 ? 3 : 1;
   if (udv >= 1.3) buyerSignals.push(`Volume hari naik ${udv.toFixed(2).replace(".", ",")}× volume hari turun (10 hari).`);
 
-  const sup = ctx.supports.filter((s) => s < price && s >= price * 0.94).sort((a, b) => b - a)[0];
+  const sup = ctx.supports.filter((x) => x < price && x >= price * 0.94).sort((a, b) => b - a)[0];
   if (sup !== undefined) {
     const tests = candles.slice(-20).filter((c) => c.l <= sup * 1.015 && c.c >= sup).length;
     if (tests >= 2) buyerSignals.push(`Support ${rp(sup)} diuji ${tests} kali dalam 20 hari dan selalu bertahan.`);
+  }
+
+  // Pantulan dari penopang: low menembus MA/support lalu candle ditutup kembali di atasnya.
+  const floors = [
+    ...maLevels.filter((x) => x.above).map((x) => ({ label: `${x.label} ${rp(x.value)}`, v: x.value })),
+    ...ctx.supports.filter((x) => x < price && x >= price * 0.9).map((x) => ({ label: `support ${rp(x)}`, v: x })),
+  ].sort((a, b) => b.v - a.v);
+  let reclaim: { label: string; level: number; high: number; low: number; barsAgo: number } | null = null;
+  for (let k = 0; k < 2 && !reclaim; k++) {
+    const c = candles[n - 1 - k];
+    const lv = floors.find((f) => c.l < f.v * 0.997 && c.c > f.v);
+    if (lv) reclaim = { label: lv.label, level: lv.v, high: c.h, low: c.l, barsAgo: k };
+  }
+  const reclaimConfirmed = reclaim !== null && reclaim.barsAgo === 1 && last.c > reclaim.high;
+  if (reclaim) {
+    buyerSignals.push(
+      `Pembeli mempertahankan ${reclaim.label}: low ${rp(reclaim.low)} sempat menembusnya, lalu ditutup kembali di atasnya ${reclaim.barsAgo === 0 ? "hari ini" : "kemarin"}${reclaimConfirmed ? " — dan hari ini dikonfirmasi tutup di atas high pantulan" : ""}.`,
+    );
   }
 
   const vol20 = ind.volume?.avg20 ?? 0;
@@ -175,7 +204,12 @@ export function buildEntrySignal(
   const add = (label: string, points: number, detail: string) => {
     if (points !== 0) items.push({ label, points, detail });
   };
-  if (m20) add("Posisi vs MA20", m20.above ? 10 : -10, `Harga ${pc(m20.distPct)} terhadap MA20 ${rp(m20.value)}.`);
+  const pullbackInTrend = !!m50?.above && !!m20 && !m20.above;
+  if (m20) {
+    // Di bawah MA20 saat pullback dalam tren naik bukan kelemahan struktural — penaltinya lebih kecil.
+    const p = m20.above ? 10 : pullbackInTrend ? -4 : -10;
+    add("Posisi vs MA20", p, `Harga ${pc(m20.distPct)} terhadap MA20 ${rp(m20.value)}${pullbackInTrend ? " (pullback di atas MA50)" : ""}.`);
+  }
   if (m50) add("Posisi vs MA50", m50.above ? 8 : -8, `Harga ${pc(m50.distPct)} terhadap MA50 ${rp(m50.value)}.`);
   if (m200) add("Posisi vs MA200", m200.above ? 5 : -5, `Harga ${pc(m200.distPct)} terhadap MA200 ${rp(m200.value)}.`);
   if (m20?.slopePct != null) add("Arah MA20 (10 hari)", m20.slopePct > 0 ? 4 : -4, `MA20 ${m20.slopePct > 0 ? "menanjak" : "menurun"} ${pc(m20.slopePct, 2)}.`);
@@ -183,7 +217,7 @@ export function buildEntrySignal(
     const p = obstacle.distPct < 2 ? -12 : obstacle.distPct < 4 ? -5 : 0;
     add("Penghalang di atas harga", p, `${obstacle.label} ${rp(obstacle.price)} hanya ${pc(obstacle.distPct)} di atas harga — ruang naik sempit.`);
   }
-  if (rejection) add("Penolakan di MA", -8, `Harga ditolak di ${rejection} dalam 3 hari terakhir.`);
+  if (rejection && !reclaim) add("Penolakan di MA", -8, `Harga ditolak di ${rejection} dalam 3 hari terakhir.`);
   if (m20 && m20.distPct > 8) add("Terlalu jauh dari MA20", -12, `Harga ${pc(m20.distPct)} di atas MA20 — risiko pullback tinggi.`);
   if (ind.rsi14 !== null && ind.rsi14 > 72) add("RSI jenuh beli", -8, `RSI ${ind.rsi14.toFixed(1).replace(".", ",")} > 72.`);
   if (bestBull) {
@@ -202,6 +236,7 @@ export function buildEntrySignal(
     );
   }
   if (buyerSignals.length) add("Perlawanan pembeli", Math.min(12, buyerSignals.length * 3), `${buyerSignals.length} tanda (+3 per tanda, maks. +12).`);
+  if (reclaimConfirmed) add("Pantulan terkonfirmasi", 6, `Penutupan hari ini di atas high candle pantulan dari ${reclaim!.label}.`);
   const score = Math.round(clamp(items.reduce((a, b) => a + b.points, 0)));
 
   /* ---------- 5. Vonis ---------- */
@@ -209,77 +244,183 @@ export function buildEntrySignal(
   const tightObstacle = obstacle !== null && obstacle.distPct < 2;
   const belowAll = maLevels.length > 0 && maLevels.every((x) => !x.above);
   let verdict: EntryVerdict;
-  if ((bestBear && bestBear.strength >= 3) || (belowAll && (m20?.slopePct ?? 0) < 0 && !bestBull)) verdict = "HINDARI";
+  if ((bestBear && bestBear.strength >= 3) || (belowAll && (m20?.slopePct ?? 0) < 0 && !bestBull && !reclaim)) verdict = "HINDARI";
   else if (
     score >= 68 &&
     !tightObstacle &&
-    !rejection &&
+    (!rejection || reclaimConfirmed) &&
     !extended &&
     !bestBear &&
     (bestBull?.followThrough === true ||
+      reclaimConfirmed ||
       (!bestBull && !!m20?.above && !!m50?.above && m20.distPct <= 3 && buyerSignals.length >= 2))
   )
     verdict = "SIAP";
-  else if (score >= 45 || bestBull) verdict = "TUNGGU";
+  else if (score >= 45 || bestBull || reclaim) verdict = "TUNGGU";
   else verdict = "BELUM";
 
-  /* ---------- 6. Syarat yang ditunggu ---------- */
-  const waitFor: string[] = [];
+  const extendedNow = extended;
+  /* ---------- 6. Skenario masuk: syarat + zona + stop + target selalu dihitung bersama ---------- */
+  const res = ctx.resistances.filter((r) => r > price).sort((a, b) => a - b);
+  const mkTarget = (from: number) => {
+    const r = res.find((x) => x >= from + atr * 1.5);
+    return r !== undefined
+      ? { v: roundTick(r, "down"), why: `resistance ${rp(r)}` }
+      : { v: roundTick(from + atr * 3, "down"), why: "batas atas zona + 3×ATR" };
+  };
+  const rrOf = (lo: number, hi: number, stop: number, t: number) => {
+    const mid = (lo + hi) / 2;
+    return mid > stop ? (t - mid) / (mid - stop) : null;
+  };
+  const scenarios: EntryScenario[] = [];
+  const notes: string[] = [];
   let trigger: EntrySignal["trigger"] = null;
+
+  // Lantai terdekat di bawah harga (dalam 3×ATR) untuk skenario pantulan.
+  const floorCands: { v: number; why: string }[] = [];
+  if (reclaim) floorCands.push({ v: reclaim.level, why: reclaim.label });
+  if (bestBull) floorCands.push({ v: bestBull.low, why: `low ${bestBull.name} ${rp(bestBull.low)}` });
+  for (const f of floors) floorCands.push({ v: f.v, why: f.label });
+  if (ctx.plan.entryLow) floorCands.push({ v: ctx.plan.entryLow.price, why: `batas bawah zona entry ${rp(ctx.plan.entryLow.price)}` });
+  const floor =
+    (extendedNow && m20 ? { v: m20.value, why: `MA20 ${rp(m20.value)}` } : null) ??
+    floorCands.filter((f) => f.v <= price && f.v >= price - atr * 3).sort((a, b) => b.v - a.v)[0] ??
+    floorCands.filter((f) => f.v <= price).sort((a, b) => b.v - a.v)[0] ??
+    null;
+
   if (verdict === "SIAP") {
-    const why = bestBull
-      ? `${bestBull.name} ${bestBull.barsAgo === 0 ? "hari ini" : `${bestBull.barsAgo} hari lalu`} sudah dikonfirmasi candle berikutnya`
-      : `harga di atas MA20 & MA50, hanya ${pc(m20?.distPct ?? 0)} dari MA20, dengan ${buyerSignals.length} tanda perlawanan pembeli`;
-    waitFor.push(
-      `Setup terpenuhi — ${why}.` +
-        (ctx.plan.entryLow
-          ? ` Eksekusi di zona entry ${rp(ctx.plan.entryLow.price)}–${rp(ctx.plan.entryHigh?.price ?? price)} dengan stop loss ${rp(ctx.plan.stopLoss.price)}.`
-          : ""),
-    );
+    const buy = ctx.plan.mode === "BELI" && ctx.plan.entryLow && ctx.plan.entryHigh;
+    const lo = buy ? ctx.plan.entryLow!.price : roundTick(price - atr * 0.5);
+    const hi = buy ? ctx.plan.entryHigh!.price : roundTick(price);
+    const anchor = bestBull?.followThrough ? bestBull.low : reclaimConfirmed ? reclaim!.low : null;
+    const stop = buy ? ctx.plan.stopLoss.price : roundTick((anchor ?? price - atr * 1.5) - atr * 0.25, "down");
+    const t = buy ? { v: ctx.plan.target1.price, why: "target 1 rencana transaksi" } : mkTarget(hi);
+    const why = bestBull?.followThrough
+      ? `${bestBull.name} ${bestBull.barsAgo} hari lalu sudah dikonfirmasi candle berikutnya`
+      : reclaimConfirmed
+        ? `pantulan dari ${reclaim!.label} sudah dikonfirmasi penutupan di atas high ${rp(reclaim!.high)}`
+        : `harga di atas MA20 & MA50, hanya ${pc(m20?.distPct ?? 0)} dari MA20, dengan ${buyerSignals.length} tanda perlawanan pembeli`;
+    scenarios.push({
+      key: "sekarang",
+      title: "Siap masuk sekarang",
+      condition: `Setup terpenuhi — ${why}.`,
+      zoneLow: lo,
+      zoneHigh: hi,
+      stop,
+      target: t.v,
+      riskReward: rrOf(lo, hi, stop, t.v),
+      basis: buy ? "Zona, stop, dan target dari rencana transaksi (sama dengan Dewan & Siklus)." : `Zona: harga − 0,5×ATR s.d. harga; stop di bawah ${anchor ? "low pola/pantulan" : "harga − 1,5×ATR"} − 0,25×ATR; target ${t.why}.`,
+      triggerPrice: null,
+      triggerLabel: null,
+    });
+    if (anchor) trigger = { label: "Batal bila tutup di bawah", price: roundTick(anchor * 0.999, "down") };
     if (obstacle) {
-      waitFor.push(
-        `Catatan: ${obstacle.label} ${rp(obstacle.price)} (${pc(obstacle.distPct)}) di atas harga — area ambil untung sebagian; tambah posisi hanya bila ditutup tembus dengan volume.`,
-      );
+      notes.push(`${obstacle.label} ${rp(obstacle.price)} (${pc(obstacle.distPct)}) di atas harga — area ambil untung sebagian; tambah posisi hanya bila ditutup tembus dengan volume.`);
     }
-    const s = bestBull ? bestBull.low : m20?.value;
-    if (s) trigger = { label: bestBull ? `Batal bila tutup di bawah low ${bestBull.name}` : "Batal bila tutup di bawah MA20", price: roundTick(s * 0.999, "down") };
+  } else {
+    // Skenario A — Pantulan: beli dekat harga sekarang setelah pembalikan dikonfirmasi.
+    if (floor && verdict !== "HINDARI") {
+      let condition: string;
+      let confirmAt: number | null = null;
+      if (extendedNow) {
+        condition = `Harga turun kembali ke ${floor.why} lalu muncul pola pembalikan bullish (Hammer, Bullish Engulfing, Morning Star) di sana — jangan membeli di harga sekarang yang sudah ${pc(m20?.distPct ?? 0)} dari MA20.`;
+      } else if (bestBull && bestBull.followThrough === null) {
+        confirmAt = roundTick(candles[bestBull.index].h * 1.001, "up");
+        condition = `Candle berikutnya ditutup di atas high ${bestBull.name} ${rp(confirmAt)}.`;
+      } else if (reclaim && !reclaimConfirmed) {
+        confirmAt = roundTick(reclaim.high * 1.001, "up");
+        condition = `Pantulan dari ${reclaim.label} dikonfirmasi: candle berikutnya ditutup di atas high ${rp(confirmAt)}.`;
+      } else {
+        condition = `Muncul pola pembalikan bullish (Hammer, Bullish Engulfing, Morning Star, Piercing Line) atau pantulan yang menutup kembali di atas ${floor.why}.`;
+      }
+      const anchorLow = extendedNow
+        ? floor.v
+        : Math.min(floor.v, bestBull?.followThrough === null ? bestBull.low : Infinity, reclaim && !reclaimConfirmed ? reclaim.low : Infinity);
+      const lo = confirmAt !== null ? roundTick(Math.max(floor.v, confirmAt - atr * 0.5)) : roundTick(floor.v);
+      const hi = confirmAt !== null ? roundTick(confirmAt + atr * 0.25) : roundTick(floor.v + atr * 0.5);
+      const stop = roundTick(anchorLow - atr * (confirmAt !== null ? 0.25 : 0.75), "down");
+      const t = mkTarget(hi);
+      scenarios.push({
+        key: "pantulan",
+        title: pullbackInTrend ? "Beli pullback yang terkonfirmasi" : extendedNow ? "Beli saat pullback ke MA20" : "Beli saat pantulan terkonfirmasi",
+        condition,
+        zoneLow: Math.min(lo, hi),
+        zoneHigh: Math.max(lo, hi),
+        stop,
+        target: t.v,
+        riskReward: rrOf(Math.min(lo, hi), Math.max(lo, hi), stop, t.v),
+        basis:
+          confirmAt !== null
+            ? `Zona dekat level konfirmasi ${rp(confirmAt)} (−0,5×ATR s.d. +0,25×ATR, tidak di bawah ${floor.why}) — jangan mengejar di atasnya. Stop di bawah low ${rp(anchorLow)} − 0,25×ATR. Target ${t.why}.`
+            : `Zona di ${floor.why} s.d. +0,5×ATR. Stop ${rp(floor.v)} − 0,75×ATR. Target ${t.why}.`,
+        triggerPrice: confirmAt ?? roundTick(floor.v + atr * 0.5),
+        triggerLabel:
+          confirmAt !== null
+            ? "Tutup di atas"
+            : price <= floor.v + atr * 0.5
+              ? "Sudah di zona — tunggu pola pembalikan di"
+              : `Turun ke ${floor.why.split(" Rp")[0]}`,
+      });
+      if (confirmAt !== null) trigger = { label: "Konfirmasi pantulan", price: confirmAt };
+    }
+
+    // Skenario B — Tembus: beli setelah penghalang ditembus, di zona BARU tepat di atas level itu.
+    const overheadAll = [
+      ...maLevels.filter((x) => !x.above).map((x) => ({ label: x.label, v: x.value, ma: true })),
+      ...res.map((r) => ({ label: "resistance", v: r, ma: false })),
+    ]
+      .filter((o) => (o.v - price) / price <= 0.1)
+      .sort((a, b) => a.v - b.v);
+    const lvl = overheadAll[0];
+    if (lvl) {
+      const lt = roundTick(lvl.v * 1.002, "up");
+      const lo = lt;
+      const hi = roundTick(lt + atr * 0.5);
+      const stop = roundTick(lt - atr * 1.25, "down");
+      const t = mkTarget(hi);
+      const name = lvl.ma ? lvl.label : `resistance ${rp(lvl.v)}`;
+      scenarios.push({
+        key: "tembus",
+        title: `Beli setelah tembus ${name}`,
+        condition: `Harga ditutup ≥ ${rp(lt)} (${pc(((lt - price) / price) * 100)} dari sekarang) — menembus ${lvl.ma ? `${name} ${rp(lvl.v)}` : name} — dengan volume ≥ 1,2× rata-rata 20 hari${lvl.label === "MA20" ? ", 2 hari berturut-turut" : ""}.`,
+        zoneLow: lo,
+        zoneHigh: hi,
+        stop,
+        target: t.v,
+        riskReward: rrOf(lo, hi, stop, t.v),
+        basis: `Zona baru setelah tembus: ${rp(lt)} s.d. +0,5×ATR — bukan zona lama di bawahnya. Stop ${rp(lt)} − 1,25×ATR (tembus gagal). Target ${t.why}.`,
+        triggerPrice: lt,
+        triggerLabel: `Tutup di atas ${name}`,
+      });
+      trigger ??= { label: `Tutup di atas ${name}`, price: lt };
+    }
+    // Downtrend: struktur perlu diperbaiki dulu → skenario tembus didahulukan.
+    if (belowAll && scenarios.length === 2) scenarios.reverse();
+    // Skenario dengan potensi untung < risiko tidak ditawarkan.
+    for (let k = scenarios.length - 1; k >= 0; k--) {
+      const sc = scenarios[k];
+      if (sc.riskReward !== null && sc.riskReward < 1) {
+        notes.push(`Skenario "${sc.title}" dilewati: R/R hanya 1:${sc.riskReward.toFixed(2).replace(".", ",")} (target ${rp(sc.target)} terlalu dekat).`);
+        scenarios.splice(k, 1);
+      }
+    }
+    scenarios.forEach((sc, k) => (sc.title = `${String.fromCharCode(65 + k)} · ${sc.title}`));
+    // Pemicu utama selalu milik skenario A agar syarat, zona, dan pemicu tidak tertukar.
+    trigger =
+      scenarios[0]?.triggerPrice != null
+        ? { label: scenarios[0].triggerLabel ?? "Pemicu", price: scenarios[0].triggerPrice }
+        : null;
+
+    if (extended) notes.push(`Harga ${pc(m20?.distPct ?? 0)} dari MA20 — jangan mengejar; tunggu pullback ke MA20${m20 ? ` ${rp(m20.value)}` : ""}.`);
+    if (bestBear) {
+      notes.push(`${bestBear.name} ${bestBear.barsAgo === 0 ? "hari ini" : `${bestBear.barsAgo} hari lalu`} masih aktif — anggap batal bila harga tutup di atas ${rp(roundTick(bestBear.high * 1.001, "up"))}.`);
+    }
+    if (verdict === "HINDARI" && !scenarios.length) notes.push("Belum ada skenario masuk yang masuk akal — tunggu struktur harga membaik.");
   }
-  if (verdict !== "SIAP" && obstacle && obstacle.distPct < 4) {
-    const t = roundTick(obstacle.price * 1.002, "up");
-    waitFor.push(`Penutupan di atas ${obstacle.label} ${rp(t)} (${pc(((t - price) / price) * 100)}) dengan volume ≥ 1,2× rata-rata 20 hari — tanda penghalang ditembus, bukan sekadar disentuh.`);
-    trigger = { label: `Tutup di atas ${obstacle.label}`, price: t };
-  }
-  if (verdict !== "SIAP" && m20 && !m20.above) {
-    const t = roundTick(m20.value, "up");
-    waitFor.push(`Harga kembali ditutup di atas MA20 ${rp(t)} selama 2 hari berturut-turut.`);
-    trigger ??= { label: "Tutup di atas MA20", price: t };
-  }
-  if (verdict === "SIAP") {
-    /* sudah ditangani di atas */
-  } else if (!bestBull) {
-    const zone =
-      m20 && m20.above && m20.distPct < 8
-        ? `MA20 ${rp(m20.value)}`
-        : sup !== undefined
-          ? `support ${rp(sup)}`
-          : ctx.plan.entryLow
-            ? `batas bawah zona entry ${rp(ctx.plan.entryLow.price)}`
-            : "area penopang terdekat";
-    waitFor.push(`Pola pembalikan bullish — Hammer, Morning Star, Bullish Engulfing, atau Piercing Line — saat harga menguji ${zone}.`);
-  } else if (bestBull.followThrough === null) {
-    const t = roundTick(bestBull.high * 1.001, "up");
-    waitFor.push(`Konfirmasi ${bestBull.name}: candle berikutnya ditutup di atas high pola ${rp(t)}.`);
-    trigger ??= { label: `Konfirmasi ${bestBull.name}`, price: t };
-  }
-  if (verdict !== "SIAP" && extended) {
-    waitFor.push(
-      `Harga terlalu jauh dari rata-rata — tunggu pullback ke MA20${m20 ? ` ${rp(m20.value)}` : ""}${ctx.plan.entryLow ? ` / zona entry ${rp(ctx.plan.entryLow.price)}–${rp(ctx.plan.entryHigh?.price ?? price)}` : ""}.`,
-    );
-  }
-  if (bestBear) {
-    const t = roundTick(bestBear.high * 1.001, "up");
-    waitFor.push(`${bestBear.name} ${bestBear.barsAgo === 0 ? "hari ini" : `${bestBear.barsAgo} hari lalu`} perlu gugur dulu: tutup di atas ${rp(t)}.`);
-  }
+
+  const fmtSc = (sc: EntryScenario) =>
+    `${sc.title}: ${sc.condition} → beli di ${rp(sc.zoneLow)}–${rp(sc.zoneHigh)}, stop ${rp(sc.stop)}, target ${rp(sc.target)}${sc.riskReward !== null ? ` (R/R 1:${sc.riskReward.toFixed(2).replace(".", ",")})` : ""}.`;
+  const waitFor = [...scenarios.map(fmtSc), ...notes];
 
   /* ---------- 7. Daftar periksa ---------- */
   const checklist: EntryCheck[] = [];
@@ -296,13 +437,15 @@ export function buildEntrySignal(
     detail: obstacle ? `${obstacle.label} ${rp(obstacle.price)} (${pc(obstacle.distPct)})` : "Tidak ada MA/resistance dalam 5% di atas harga",
   });
   checklist.push({
-    label: "Pola pembalikan bullish",
-    status: bestBear ? "bad" : bestBull ? (bestBull.followThrough ? "ok" : "wait") : "wait",
+    label: "Pola pembalikan / pantulan bullish",
+    status: bestBear ? "bad" : bestBull?.followThrough || reclaimConfirmed ? "ok" : "wait",
     detail: bestBear
       ? `${bestBear.name} (bearish) muncul ${bestBear.barsAgo === 0 ? "hari ini" : `${bestBear.barsAgo} hari lalu`}`
       : bestBull
         ? `${bestBull.name} ${bestBull.barsAgo === 0 ? "hari ini" : `${bestBull.barsAgo} hari lalu`}${bestBull.followThrough ? " — sudah dikonfirmasi" : " — menunggu konfirmasi candle berikutnya"}`
-        : "Belum ada dalam 5 candle terakhir",
+        : reclaim
+          ? `Pantulan dari ${reclaim.label}${reclaimConfirmed ? " — sudah dikonfirmasi" : " — menunggu konfirmasi candle berikutnya"}`
+          : "Belum ada dalam 5 candle terakhir",
   });
   const volOk = (bestBull?.volumeConfirmed ?? false) || strongClose;
   checklist.push({
@@ -321,6 +464,11 @@ export function buildEntrySignal(
     detail: `${m20 ? `${pc(m20.distPct)} dari MA20` : "MA20 —"}${ind.rsi14 !== null ? ` · RSI ${ind.rsi14.toFixed(0)}` : ""}`,
   });
 
+  const reasons = [
+    ...checklist.filter((c) => c.status === "ok").map((c) => `${c.label}: ${c.detail}.`),
+    ...buyerSignals,
+  ];
+
   return {
     verdict,
     label: ENTRY_LABEL[verdict],
@@ -335,6 +483,8 @@ export function buildEntrySignal(
     checklist,
     waitFor,
     trigger,
+    scenarios,
+    reasons,
     breakdown: items,
   };
 }

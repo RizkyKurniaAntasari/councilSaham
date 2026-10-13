@@ -893,7 +893,18 @@ export default function MarketRadar() {
                 <RecommendationTable rows={view} />
               </>
             )}
-            {tab === "sinyal" && <SignalList rows={view} />}
+            {tab === "sinyal" && (
+              <>
+                <Link
+                  href="/siap-masuk"
+                  className="flex items-center justify-between gap-3 border-b border-white/10 bg-bull/[0.06] px-4 py-2.5 text-xs font-semibold text-bull hover:bg-bull/10"
+                >
+                  <span>✅ Hanya ingin yang sudah terkonfirmasi? Buka daftar "Siap Masuk" lengkap dengan alasannya</span>
+                  <span aria-hidden>→</span>
+                </Link>
+                <SignalList rows={view} />
+              </>
+            )}
             {tab === "trending-naik" && (
               <>
                 <MobileList rows={view} kind="trendUp" />

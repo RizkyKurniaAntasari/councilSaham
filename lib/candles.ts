@@ -257,11 +257,13 @@ export function detectPatterns(
       // Konfirmasi candle berikutnya: tutup di atas high pola (bullish) / di bawah low pola (bearish).
       const patHigh = Math.max(...cs.slice(i - raw.bars + 1, i + 1).map((x) => x.h));
       const patLow = Math.min(...cs.slice(i - raw.bars + 1, i + 1).map((x) => x.l));
+      const confirmHigh = cs[i].h;
+      const confirmLow = cs[i].l;
       // null = konfirmasi masih ditunggu (jatahnya 2 candle setelah pola).
       let followThrough: boolean | null = null;
       if (i + 1 < n) {
         const nxt = cs.slice(i + 1, Math.min(n, i + 3));
-        const hit = raw.bullish ? nxt.some((x) => x.c > patHigh) : nxt.some((x) => x.c < patLow);
+        const hit = raw.bullish ? nxt.some((x) => x.c > confirmHigh) : nxt.some((x) => x.c < confirmLow);
         followThrough = hit ? true : nxt.length >= 2 ? false : null;
       }
       const strength = raw.reliability + (volumeConfirmed ? 1 : 0) + (followThrough ? 1 : 0) - (followThrough === false ? 1 : 0);

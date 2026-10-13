@@ -190,13 +190,20 @@ async function scanOne(info: IdxTicker, ihsg: IhsgReport | null): Promise<Screen
         : null,
       waitFor: entry.waitFor[0] ?? null,
       trigger: entry.trigger,
+      scenario: entry.scenarios[0] ?? null,
+      nearScenario:
+        [...entry.scenarios]
+          .filter((sc) => sc.triggerPrice !== null)
+          .sort((a, b) => Math.abs(a.triggerPrice! - price) - Math.abs(b.triggerPrice! - price))[0] ?? null,
+      reasons: entry.reasons.slice(0, 8),
+      checks: { ok: entry.checklist.filter((c) => c.status === "ok").length, total: entry.checklist.length },
     },
     spark: candles.slice(-60).map((c) => c.c),
   };
 }
 
 export async function runScreener(universe: IdxTicker[] = IDX_TICKERS): Promise<ScreenerResult> {
-  return cached(`screener:v7:${universe.length}`, 10 * 60 * 1000, async () => {
+  return cached(`screener:v9:${universe.length}`, 10 * 60 * 1000, async () => {
     const ihsg = await getIhsg().catch(() => null);
     const rows: ScreenerRow[] = [];
     const failed: string[] = [];

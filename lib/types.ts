@@ -423,6 +423,10 @@ export interface ScreenerRow {
     pattern: Pick<CandlePattern, "name" | "bullish" | "barsAgo" | "strength" | "followThrough" | "volumeConfirmed"> | null;
     waitFor: string | null;
     trigger: { label: string; price: number } | null;
+    scenario: EntryScenario | null; // skenario utama (zona/stop/target konsisten)
+    nearScenario: EntryScenario | null; // skenario yang pemicunya paling dekat dengan harga
+    reasons: string[]; // alasan positif yang terpenuhi
+    checks: { ok: number; total: number };
   };
   spark: number[];
 }
@@ -516,6 +520,22 @@ export interface MaLevel {
   slopePct: number | null; // kemiringan 10 hari
 }
 
+/** Skenario masuk yang konsisten: syarat + zona + stop + target dihitung bersama. */
+export interface EntryScenario {
+  key: "sekarang" | "pantulan" | "tembus";
+  title: string;
+  condition: string; // syarat yang harus terjadi dulu
+  zoneLow: number;
+  zoneHigh: number;
+  stop: number;
+  target: number;
+  riskReward: number | null;
+  basis: string; // rumus zona/stop/target
+  /** Harga yang harus tercapai agar syarat terpenuhi (null = sudah terpenuhi). */
+  triggerPrice: number | null;
+  triggerLabel: string | null;
+}
+
 export interface EntrySignal {
   verdict: EntryVerdict;
   label: string;
@@ -530,5 +550,8 @@ export interface EntrySignal {
   checklist: EntryCheck[];
   waitFor: string[];
   trigger: { label: string; price: number } | null;
+  scenarios: EntryScenario[];
+  /** Alasan positif yang terpenuhi — dipakai daftar "Siap Masuk". */
+  reasons: string[];
   breakdown: ScoreItem[];
 }
