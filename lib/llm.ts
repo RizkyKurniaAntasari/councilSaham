@@ -80,6 +80,21 @@ function toPayload(a: AnalysisResult) {
           pola: t.patterns,
         }
       : "tidak tersedia",
+    siklus: a.cycle?.available
+      ? { fase: a.cycle.label, tahap: a.cycle.stage, keyakinan: a.cycle.confidence, probabilitas: a.cycle.scores }
+      : "tidak tersedia",
+    rencana_transaksi_resmi: a.dataRec?.plan
+      ? {
+          catatan: "Gunakan angka ini apa adanya bila menyebut entry/stop/target — jangan membuat level sendiri.",
+          mode: a.dataRec.plan.mode,
+          zona_entry: a.dataRec.plan.entryLow ? [a.dataRec.plan.entryLow.price, a.dataRec.plan.entryHigh?.price] : null,
+          stop_loss: a.dataRec.plan.stopLoss.price,
+          target_1: a.dataRec.plan.target1.price,
+          target_2: a.dataRec.plan.target2?.price ?? null,
+          syarat_beli_kembali: a.dataRec.plan.reentry?.price ?? null,
+          risk_reward_tp1: a.dataRec.plan.riskReward1,
+        }
+      : "tidak tersedia",
     berita: {
       jumlah: a.news.counts,
       intensitas: a.news.buzz,

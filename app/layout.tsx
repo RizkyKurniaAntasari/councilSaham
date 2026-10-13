@@ -56,12 +56,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               >
                 📡 Radar Pasar
               </Link>
-              <Link
-                href="/saham/ADMR"
-                className="hidden rounded-lg px-3 py-2 text-slate-300 transition hover:bg-white/5 hover:text-white sm:inline-block"
-              >
-                Contoh: ADMR
-              </Link>
             </nav>
           </div>
         </header>

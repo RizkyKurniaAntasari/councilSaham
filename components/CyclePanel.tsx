@@ -1,7 +1,9 @@
 import { fmtDate, fmtIDR, fmtNumber } from "@/lib/format";
 import type { CycleReport, DataRecommendation } from "@/lib/types";
 import { CycleWave, PHASE_META, PHASE_ORDER, PhaseBadge, RecBadge } from "./cycle-ui";
-import { BulletList, ScoreBar, ScoreRing, Section, Stat } from "./ui";
+import { REC_BANDS } from "@/lib/recommend";
+import { PlanLevels, PlanRiskLine, ScoreBreakdown } from "./plan-ui";
+import { BulletList, ScoreRing, Section, Stat } from "./ui";
 
 function Timeline({ points }: { points: CycleReport["timeline"] }) {
   if (points.length < 2) return null;
@@ -110,28 +112,47 @@ export default function CyclePanel({ cycle, rec }: { cycle: CycleReport; rec: Da
               <ScoreRing score={rec.score} size={92} sublabel="skor" />
             </div>
 
-            {rec.entry && (
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <Stat label="Area entry" value={`${fmtNumber(rec.entry.low, 0)}–${fmtNumber(rec.entry.high, 0)}`} />
-                <Stat label="Stop loss" value={rec.stopLoss ? fmtNumber(rec.stopLoss, 0) : "—"} tone="bear" />
-                <Stat label="Target 1" value={rec.target1 ? fmtNumber(rec.target1, 0) : "—"} tone="bull" />
-                <Stat label="Target 2" value={rec.target2 ? fmtNumber(rec.target2, 0) : "—"} tone="bull" />
+            {/* Level harga — angka sama persis dengan Dewan Analis & Teknikal */}
+            <div className="mt-4">
+              <p className="stat-label mb-1">
+                {rec.plan.mode === "BELI" ? "Rencana transaksi" : "Panduan bagi pemegang (fase bearish)"}
+              </p>
+              <PlanLevels plan={rec.plan} />
+              <div className="mt-2">
+                <PlanRiskLine plan={rec.plan} />
               </div>
-            )}
-            {rec.riskReward !== null && (
-              <div className="mt-3">
-                <ScoreBar
-                  score={Math.min(100, rec.riskReward * 33)}
-                  label="Risk / reward"
-                  right={`1 : ${fmtNumber(rec.riskReward, 1)}`}
-                />
+            </div>
+
+            <div className="mt-4 rounded-xl border border-white/8 bg-white/[0.02] px-3 py-2.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-xs font-medium text-slate-400">Ukuran posisi</span>
+                <span className="text-sm font-semibold tabular text-white">
+                  {rec.position.pct > 0 ? `±${String(rec.position.pct).replace(".", ",")}% portofolio` : "0%"}
+                </span>
               </div>
-            )}
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{rec.position.basis}</p>
+            </div>
 
             <div className="mt-4 space-y-3">
               <BulletList items={rec.reasons} tone="bull" />
               <BulletList items={rec.warnings} tone="warn" />
             </div>
+
+            <details className="group mt-4">
+              <summary className="cursor-pointer list-none text-xs font-semibold text-brandx">
+                <span className="group-open:hidden">▼ Lihat cara skor {rec.score} dihitung</span>
+                <span className="hidden group-open:inline">▲ Sembunyikan rincian skor</span>
+              </summary>
+              <div className="mt-3">
+                <ScoreBreakdown items={rec.breakdown} total={rec.score} note={`Ambang aksi: ${REC_BANDS}`} />
+              </div>
+            </details>
+
+            <p className="mt-4 text-[11px] leading-relaxed text-slate-500">
+              Rekomendasi ini hanya membaca harga & volume (siklus, aliran dana, momentum, likuiditas). Sikap Dewan
+              Analis di atas bisa berbeda karena ikut menimbang fundamental, berita, dan validasi story — level
+              harganya tetap sama.
+            </p>
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">

@@ -1,12 +1,58 @@
 import { fmtIDR, fmtNumber, fmtPct } from "@/lib/format";
-import type { TechnicalReport } from "@/lib/types";
+import type { TechnicalReport, TradePlan } from "@/lib/types";
+import { PlanLevels, PlanRiskLine } from "./plan-ui";
 import { Badge, BulletList, ScoreRing, Section, Stat } from "./ui";
 
 function signalTone(s: "BULLISH" | "BEARISH" | "NETRAL") {
   return s === "BULLISH" ? "bull" : s === "BEARISH" ? "bear" : "neutral";
 }
 
-export default function TechnicalPanel({ t }: { t: TechnicalReport }) {
+function TechMath({ t }: { t: TechnicalReport }) {
+  const sum = t.breakdown.reduce((a, b) => a + b.score * b.weight, 0);
+  const f = (v: number, d = 1) => v.toFixed(d).replace(".", ",");
+  return (
+    <details className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <summary className="cursor-pointer list-none text-xs font-semibold text-brandx">
+        <span className="group-open:hidden">▼ Lihat cara skor teknikal {t.score} dihitung</span>
+        <span className="hidden group-open:inline">▲ Sembunyikan perhitungan</span>
+      </summary>
+      <ul className="mt-3 divide-y divide-white/5 rounded-xl border border-white/8">
+        {t.breakdown.map((b) => (
+          <li key={b.label} className="px-3 py-2">
+            <div className="flex items-baseline justify-between gap-3 text-xs">
+              <span className="font-medium text-slate-300">{b.label}</span>
+              <span className="shrink-0 tabular text-slate-400">
+                {b.weight === 1 ? (
+                  <span className={b.score >= 0 ? "font-semibold text-bull" : "font-semibold text-bear"}>
+                    {b.score > 0 ? "+" : "−"}
+                    {Math.abs(b.score)}
+                  </span>
+                ) : (
+                  <>
+                    {b.score} × {Math.round(b.weight * 100)}% ={" "}
+                    <span className="font-semibold text-white">{f(b.score * b.weight)}</span>
+                  </>
+                )}
+              </span>
+            </div>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{b.detail}</p>
+          </li>
+        ))}
+        <li className="flex items-baseline justify-between gap-3 bg-white/[0.03] px-3 py-2 text-xs">
+          <span className="font-semibold text-white">Skor teknikal</span>
+          <span className="font-bold tabular text-white">
+            {f(sum)} → {t.score}
+          </span>
+        </li>
+      </ul>
+      <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+        Tren: skor ≥60 dan harga di atas MA50 = UPTREND, skor ≤40 = DOWNTREND, selain itu SIDEWAYS.
+      </p>
+    </details>
+  );
+}
+
+export default function TechnicalPanel({ t, plan }: { t: TechnicalReport; plan?: TradePlan }) {
   const ind = t.indicators;
 
   if (!t.available) {
@@ -85,6 +131,8 @@ export default function TechnicalPanel({ t }: { t: TechnicalReport }) {
         </div>
       </div>
 
+      {t.breakdown.length > 0 && <TechMath t={t} />}
+
       {/* Level perdagangan */}
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
@@ -120,6 +168,17 @@ export default function TechnicalPanel({ t }: { t: TechnicalReport }) {
             </div>
           </div>
           <div className="divider my-4" />
+          {plan ? (
+            <>
+              <p className="stat-label mb-1">
+                {plan.mode === "BELI" ? "Rencana transaksi (sama dengan Dewan & Siklus)" : "Panduan bagi pemegang"}
+              </p>
+              <PlanLevels plan={plan} />
+              <div className="mt-2">
+                <PlanRiskLine plan={plan} />
+              </div>
+            </>
+          ) : (
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <p className="stat-label">Stop loss teknikal</p>
@@ -140,6 +199,7 @@ export default function TechnicalPanel({ t }: { t: TechnicalReport }) {
               <p className="mt-0.5 font-semibold tabular text-bull">{fmtIDR(t.levels.target2)}</p>
             </div>
           </div>
+          )}
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">

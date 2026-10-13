@@ -3,6 +3,7 @@ import { cached } from "./cache";
 import { buildCycle } from "./cycle";
 import { clamp, pivotLevels } from "./indicators";
 import { buildRecommendation } from "./recommend";
+import { buildTradePlan } from "./tradeplan";
 import { buildIndicators } from "./technical";
 import type { Candle, ScreenerResult, ScreenerRow } from "./types";
 import { fetchChart, toYahooSymbol } from "./yahoo";
@@ -115,7 +116,8 @@ async function scanOne(info: IdxTicker): Promise<ScreenerRow | null> {
 
   const cycle = buildCycle(candles, { timeline: false });
   const { supports, resistances } = pivotLevels(candles);
-  const rec = buildRecommendation(cycle, ind, { price, avgValue20, supports, resistances });
+  const plan = buildTradePlan(ind, { price, supports, resistances, cycle });
+  const rec = buildRecommendation(cycle, ind, { price, avgValue20, plan });
   const tr = trending(candles, ind);
   const trUp = trendingUp(candles, ind, tr.surge);
 
@@ -154,13 +156,13 @@ async function scanOne(info: IdxTicker): Promise<ScreenerRow | null> {
       range: cycle.range,
       summary: cycle.summary,
     },
-    rec,
+    rec: (({ plan: _plan, ...rest }) => rest)(rec),
     spark: candles.slice(-60).map((c) => c.c),
   };
 }
 
 export async function runScreener(universe: IdxTicker[] = IDX_TICKERS): Promise<ScreenerResult> {
-  return cached(`screener:v3:${universe.length}`, 10 * 60 * 1000, async () => {
+  return cached(`screener:v4:${universe.length}`, 10 * 60 * 1000, async () => {
     const rows: ScreenerRow[] = [];
     const failed: string[] = [];
     let cursor = 0;

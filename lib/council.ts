@@ -1,4 +1,5 @@
 import { clamp } from "./indicators";
+import { pct, positionSize } from "./tradeplan";
 import type {
   CouncilMember,
   CouncilVerdict,
@@ -8,6 +9,7 @@ import type {
   QuoteSnapshot,
   Stance,
   TechnicalReport,
+  TradePlan,
 } from "./types";
 
 function stanceOf(score: number): Stance {
@@ -44,6 +46,7 @@ export function buildCouncil(
   news: NewsReport,
   momentum: MomentumReport,
   quote: QuoteSnapshot,
+  plan?: TradePlan,
 ): CouncilVerdict {
   const ind = technical.indicators;
   const members: CouncilMember[] = [];
@@ -379,13 +382,17 @@ export function buildCouncil(
         ? `Konsensus moderat dengan perbedaan pandangan wajar (${bullish} bullish vs ${bearish} bearish).`
         : `Dewan terbelah tajam (${bullish} bullish vs ${bearish} bearish) — keyakinan diturunkan dan disarankan masuk bertahap.`;
 
-  const lv = technical.levels;
-  const atrPct = ind.atrPct ?? 3;
-  const basePosition =
-    stance === "STRONG_BUY" ? 8 : stance === "BUY" ? 5 : stance === "HOLD" ? 2.5 : 0;
-  const volAdjust = atrPct > 5 ? 0.5 : atrPct > 3.5 ? 0.75 : 1;
-  const confAdjust = confidence >= 70 ? 1.1 : confidence >= 50 ? 0.9 : 0.65;
-  const positionPct = basePosition * volAdjust * confAdjust;
+  // Ukuran posisi berbasis risiko: faktor sikap × faktor keyakinan dewan.
+  const stanceFactor = stance === "STRONG_BUY" ? 1 : stance === "BUY" ? 0.75 : 0;
+  const confFactor = confidence >= 70 ? 1 : confidence >= 50 ? 0.8 : 0.5;
+  const rrDead = !!plan && plan.riskReward1 !== null && plan.riskReward1 < 1 && !(plan.riskRewardAtLow !== null && plan.riskRewardAtLow >= 1);
+  const position = plan && !rrDead
+    ? positionSize(
+        plan,
+        stanceFactor * confFactor,
+        `faktor sikap ${stanceFactor.toString().replace(".", ",")} (${stanceLabel(stance)}) × faktor keyakinan ${confFactor.toString().replace(".", ",")} (keyakinan dewan ${confidence}%)`,
+      )
+    : { pct: 0, basis: rrDead ? "0% — risk/reward < 1 di seluruh zona entry." : "Rencana transaksi tidak tersedia." };
 
   const horizon =
     momentum.stories.some((s) => s.verdict === "TERVALIDASI" && s.impactHorizon.includes("panjang"))
@@ -409,6 +416,11 @@ export function buildCouncil(
   ).slice(0, 7);
 
   const watchlist: string[] = [];
+  if (plan?.mode === "BELI" && plan.entryLow) {
+    watchlist.push(`Zona entry ${fmtPrice(plan.entryLow.price)}–${fmtPrice(plan.entryHigh?.price)}: masuk hanya di zona ini, jangan mengejar di atasnya.`);
+  } else if (plan?.reentry) {
+    watchlist.push(`Penutupan di atas ${fmtPrice(plan.reentry.price)} dengan volume > 1,5× rata-rata = tanda awal pembalikan.`);
+  }
   if (technical.resistances.length) watchlist.push(`Tembus ${fmtPrice(technical.resistances[0])} dengan volume > 1,5x rata-rata = konfirmasi lanjutan tren.`);
   if (technical.supports[0]) watchlist.push(`Penutupan di bawah ${fmtPrice(technical.supports[0])} membatalkan tesis beli jangka pendek.`);
   watchlist.push("Rilis laporan keuangan kuartalan berikutnya — cek apakah pertumbuhan laba mengonfirmasi narasi.");
@@ -417,7 +429,10 @@ export function buildCouncil(
   }
   watchlist.push("Keterbukaan informasi IDX (IDXnet) untuk aksi korporasi & transaksi afiliasi.");
 
-  const narrative = buildRuleNarrative(score, stance, members, momentum, technical, fundamental, news, disagreement);
+  let narrative = buildRuleNarrative(score, stance, members, momentum, technical, fundamental, news, disagreement);
+  if ((stance === "STRONG_BUY" || stance === "BUY") && plan?.riskReward1 != null && plan.riskReward1 < 1) {
+    narrative += ` Namun di harga sekarang risk/reward ke TP1 hanya 1:${plan.riskReward1.toFixed(2).replace(".", ",")}, jadi eksekusi ditahan sampai harga mendekati batas bawah zona entry.`;
+  }
 
   return {
     score,
@@ -427,30 +442,66 @@ export function buildCouncil(
     consensus,
     disagreement,
     members,
-    actionPlan: {
-      horizon,
-      entry:
-        stance === "STRONG_BUY" || stance === "BUY"
-          ? `Cicil beli di area ${fmtPrice(quote.price)} dan tambah saat pullback ke ${fmtPrice(technical.supports[0] ?? lv.stopLoss)}.`
-          : stance === "HOLD"
-            ? `Tunggu konfirmasi. Entry baru dipertimbangkan jika harga bertahan di atas ${fmtPrice(ind.ma20 ?? quote.price)}.`
-            : "Tidak disarankan membuka posisi baru pada kondisi saat ini.",
-      stopLoss: lv.stopLoss ? `${fmtPrice(lv.stopLoss)} (≈ ${(((quote.price - lv.stopLoss) / quote.price) * 100).toFixed(1)}% dari harga sekarang)` : "—",
-      target: lv.target1 ? `TP1 ${fmtPrice(lv.target1)} • TP2 ${fmtPrice(lv.target2)}` : "—",
-      positionSizing:
-        positionPct > 0
-          ? `Maksimal ±${positionPct.toFixed(1)}% dari total portofolio, dibagi 2–3 kali pembelian.`
-          : "0% — tidak ada alokasi baru sampai kondisi membaik.",
-      invalidation:
-        technical.supports[0]
-          ? `Tesis batal jika harga tutup di bawah ${fmtPrice(technical.supports[0])} atau muncul berita negatif material (suspensi, gagal bayar, revisi laba).`
-          : "Tesis batal jika muncul berita negatif material atau tren berbalik di bawah MA50.",
-    },
+    actionPlan: buildActionPlan(score, stance, plan, position, horizon, quote.price),
     keyReasons,
     keyRisks,
     watchlist,
+    plan,
+    position,
     narrative,
     narrativeSource: "rule",
+  };
+}
+
+function buildActionPlan(
+  score: number,
+  stance: Stance,
+  plan: TradePlan | undefined,
+  position: { pct: number; basis: string },
+  horizon: string,
+  price: number,
+): CouncilVerdict["actionPlan"] {
+  const buyStance = stance === "STRONG_BUY" || stance === "BUY";
+  if (!plan) {
+    return {
+      horizon,
+      entry: "—",
+      stopLoss: "—",
+      target: "—",
+      positionSizing: position.basis,
+      invalidation: "—",
+    };
+  }
+  const lv = (l: { price: number; pct: number } | null | undefined) => (l ? `${fmtPrice(l.price)} (${pct(l.pct)})` : "—");
+  if (plan.mode === "BELI") {
+    const zone = `${fmtPrice(plan.entryLow?.price)}–${fmtPrice(plan.entryHigh?.price)}`;
+    return {
+      horizon,
+      entry: buyStance
+        ? plan.riskReward1 !== null && plan.riskReward1 < 1
+          ? plan.entryLow && plan.riskRewardAtLow !== null && plan.riskRewardAtLow >= 1
+            ? `Sikap beli, tetapi R/R dari tengah zona hanya 1:${plan.riskReward1.toFixed(2).replace(".", ",")}. Pasang antrean beli hanya di ${fmtPrice(plan.entryLow.price)} (R/R 1:${plan.riskRewardAtLow.toFixed(2).replace(".", ",")}); jangan beli di harga sekarang.`
+            : `Sikap beli, tetapi R/R 1:${plan.riskReward1.toFixed(2).replace(".", ",")} < 1 di seluruh zona entry — tunda pembelian.`
+          : `Cicil di zona ${zone}, jangan mengejar di atas ${fmtPrice(plan.entryHigh?.price)}.`
+        : stance === "HOLD"
+          ? `Belum beli — skor dewan ${score} masih di bawah ambang Beli (63). Bila skor naik ke ≥63, gunakan zona entry ${zone}.`
+          : `Tidak membuka posisi baru — skor dewan ${score} di bawah ambang Tahan (45).`,
+      stopLoss: `${lv(plan.stopLoss)} — ${plan.stopLoss.basis}`,
+      target:
+        `TP1 ${lv(plan.target1)}${plan.target2 ? ` • TP2 ${lv(plan.target2)}` : ""}` +
+        (plan.riskReward1 !== null ? ` — R/R 1:${plan.riskReward1.toFixed(2).replace(".", ",")}` : "") +
+        `. ${plan.target1.basis}`,
+      positionSizing: position.pct > 0 ? `±${position.pct.toString().replace(".", ",")}% portofolio, dibagi 2–3 kali beli. ${position.basis}` : position.basis,
+      invalidation: plan.invalidation,
+    };
+  }
+  return {
+    horizon,
+    entry: `Tidak membuka posisi baru — fase bearish. Pertimbangkan beli kembali hanya di atas ${fmtPrice(plan.reentry?.price)} (${pct(((plan.reentry?.price ?? price) - price) / price * 100)}).`,
+    stopLoss: `Batas keluar pemegang ${lv(plan.stopLoss)} — ${plan.stopLoss.basis}`,
+    target: `Area jual saat pantulan ${lv(plan.target1)} — ${plan.target1.basis}`,
+    positionSizing: position.basis,
+    invalidation: plan.invalidation,
   };
 }
 

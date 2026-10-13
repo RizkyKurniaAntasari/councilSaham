@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AnalysisResult, CouncilMember, Stance } from "@/lib/types";
+import { PlanLevels, PlanRiskLine } from "./plan-ui";
 import { Badge, BulletList, ScoreBar, ScoreRing, Section, scoreColor, scoreText } from "./ui";
 
 function stanceTone(s: Stance): "bull" | "bear" | "warn" | "neutral" {
@@ -23,6 +24,46 @@ function stanceShort(s: Stance): string {
     case "SELL":
       return "Jual";
   }
+}
+
+const STANCE_BANDS = "≥78 Akumulasi Kuat · 63–77 Beli · 45–62 Tahan · 32–44 Kurangi · <32 Jual";
+
+function CouncilMath({ c }: { c: AnalysisResult["council"] }) {
+  const totalW = c.members.reduce((a, m) => a + m.weight, 0);
+  const sumContrib = c.members.reduce((a, m) => a + (m.score * m.weight) / totalW, 0);
+  const avgConf = c.members.reduce((a, m) => a + m.confidence * m.weight, 0) / totalW;
+  const f = (v: number, d = 1) => v.toFixed(d).replace(".", ",");
+  return (
+    <div className="mt-3 space-y-3">
+      <ul className="divide-y divide-white/5 rounded-xl border border-white/8 text-xs">
+        {c.members.map((m) => (
+          <li key={m.id} className="flex items-baseline justify-between gap-3 px-3 py-2">
+            <span className="min-w-0 text-slate-300">
+              {m.emoji} {m.name}
+            </span>
+            <span className="shrink-0 tabular text-slate-400">
+              {Math.round(m.score)} × {f(m.weight)} ÷ {f(totalW)} ={" "}
+              <span className="font-semibold text-white">{f((m.score * m.weight) / totalW, 2)}</span>
+            </span>
+          </li>
+        ))}
+        <li className="flex items-baseline justify-between gap-3 bg-white/[0.03] px-3 py-2">
+          <span className="font-semibold text-white">Skor dewan</span>
+          <span className="font-bold tabular text-white">
+            {f(sumContrib, 2)} → {c.score}
+          </span>
+        </li>
+      </ul>
+      <p className="text-[11px] leading-relaxed text-slate-500">
+        Kontribusi = skor × bobot ÷ total bobot ({f(totalW)}). Bobot turun otomatis bila data anggota tidak tersedia.
+        Sikap ditentukan dari skor: {STANCE_BANDS}.
+      </p>
+      <p className="text-[11px] leading-relaxed text-slate-500">
+        Keyakinan {c.confidence}% = rata-rata keyakinan berbobot {f(avgConf)}% − 1,2 × sebaran skor antar anggota (±
+        {c.disagreement}). Makin dewan tidak sepakat, makin rendah keyakinannya.
+      </p>
+    </div>
+  );
 }
 
 function MemberCard({ m }: { m: CouncilMember }) {
@@ -138,24 +179,72 @@ export default function CouncilPanel({
       </div>
 
       {/* Rencana aksi */}
-      <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {[
-          { label: "Horizon", value: c.actionPlan.horizon, icon: "⏳" },
-          { label: "Rencana entry", value: c.actionPlan.entry, icon: "🎯" },
-          { label: "Stop loss", value: c.actionPlan.stopLoss, icon: "🛑" },
-          { label: "Target harga", value: c.actionPlan.target, icon: "🏁" },
-          { label: "Ukuran posisi", value: c.actionPlan.positionSizing, icon: "⚖️" },
-          { label: "Pembatal tesis", value: c.actionPlan.invalidation, icon: "❌" },
-        ].map((item) => (
-          <div key={item.label} className="rounded-xl border border-white/8 bg-white/[0.03] p-4">
+      {c.plan ? (
+        <div className="mt-5 grid gap-3 lg:grid-cols-[1.2fr_1fr]">
+          <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4">
             <p className="stat-label flex items-center gap-1.5">
-              <span aria-hidden>{item.icon}</span>
-              {item.label}
+              <span aria-hidden>🎯</span>
+              {c.plan.mode === "BELI" ? "Rencana transaksi" : "Panduan bagi pemegang"}
             </p>
-            <p className="mt-1.5 text-sm leading-relaxed text-slate-200">{item.value}</p>
+            <p className="mt-1.5 text-sm leading-relaxed text-slate-200">{c.actionPlan.entry}</p>
+            <div className="mt-2">
+              <PlanLevels plan={c.plan} />
+            </div>
+            <div className="mt-2">
+              <PlanRiskLine plan={c.plan} />
+            </div>
           </div>
-        ))}
-      </div>
+          <div className="grid gap-3">
+            {[
+              { label: "Horizon", value: c.actionPlan.horizon, icon: "⏳", sub: undefined as string | undefined },
+              {
+                label: "Ukuran posisi",
+                value: c.position && c.position.pct > 0 ? `±${String(c.position.pct).replace(".", ",")}% portofolio, dibagi 2–3 kali beli` : "0% — tidak ada alokasi baru",
+                icon: "⚖️",
+                sub: c.position?.basis,
+              },
+              { label: "Pembatal tesis", value: c.actionPlan.invalidation, icon: "❌", sub: undefined },
+            ].map((item) => (
+              <div key={item.label} className="rounded-xl border border-white/8 bg-white/[0.03] p-4">
+                <p className="stat-label flex items-center gap-1.5">
+                  <span aria-hidden>{item.icon}</span>
+                  {item.label}
+                </p>
+                <p className="mt-1.5 text-sm leading-relaxed text-slate-200">{item.value}</p>
+                {item.sub && <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{item.sub}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { label: "Horizon", value: c.actionPlan.horizon, icon: "⏳" },
+            { label: "Rencana entry", value: c.actionPlan.entry, icon: "🎯" },
+            { label: "Stop loss", value: c.actionPlan.stopLoss, icon: "🛑" },
+            { label: "Target harga", value: c.actionPlan.target, icon: "🏁" },
+            { label: "Ukuran posisi", value: c.actionPlan.positionSizing, icon: "⚖️" },
+            { label: "Pembatal tesis", value: c.actionPlan.invalidation, icon: "❌" },
+          ].map((item) => (
+            <div key={item.label} className="rounded-xl border border-white/8 bg-white/[0.03] p-4">
+              <p className="stat-label flex items-center gap-1.5">
+                <span aria-hidden>{item.icon}</span>
+                {item.label}
+              </p>
+              <p className="mt-1.5 text-sm leading-relaxed text-slate-200">{item.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Cara skor dewan dihitung */}
+      <details className="group mt-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <summary className="cursor-pointer list-none text-xs font-semibold text-brandx">
+          <span className="group-open:hidden">▼ Lihat cara skor dewan {c.score} dihitung</span>
+          <span className="hidden group-open:inline">▲ Sembunyikan perhitungan</span>
+        </summary>
+        <CouncilMath c={c} />
+      </details>
 
       {ai?.rekomendasi && (
         <div className="mt-5 rounded-2xl border border-bull/20 bg-bull/6 p-4 sm:p-5">

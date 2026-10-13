@@ -243,7 +243,7 @@ export default function AnalysisView({ ticker }: { ticker: string }) {
         />
       </div>
 
-      <TechnicalPanel t={data.technical} />
+      <TechnicalPanel t={data.technical} plan={data.dataRec?.plan} />
       <FundamentalPanel f={data.fundamental} />
       <NewsPanel news={data.news} ticker={data.ticker} />
       <OwnershipPanel o={data.ownership} p={data.profile} />

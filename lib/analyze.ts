@@ -6,6 +6,7 @@ import { buildFundamental } from "./fundamental";
 import { llmEnabled, mergeAiNarrative, synthesizeCouncil } from "./llm";
 import { fetchNews } from "./news";
 import { buildRecommendation } from "./recommend";
+import { buildTradePlan } from "./tradeplan";
 import { buildMomentum } from "./story";
 import { buildTechnical } from "./technical";
 import type { AnalysisResult, NewsReport } from "./types";
@@ -69,13 +70,28 @@ export async function analyze(
   const cycle = buildCycle(candles);
   const avgValue20 =
     candles.slice(-20).reduce((acc, c) => acc + c.c * c.v, 0) / Math.max(1, Math.min(20, candles.length));
-  const dataRec = buildRecommendation(cycle, technical.indicators, {
-    price: quote.price || candles[candles.length - 1].c,
-    avgValue20,
+  const lastPrice = candles[candles.length - 1].c;
+  // Satu rencana transaksi dipakai Teknikal, Siklus, dan Dewan Analis agar angkanya identik.
+  const plan = buildTradePlan(technical.indicators, {
+    price: lastPrice,
     supports: technical.supports,
     resistances: technical.resistances,
+    cycle,
   });
-  let council = buildCouncil(fundamental, technical, news, momentum, quote);
+  if (technical.available) {
+    technical.levels =
+      plan.mode === "BELI"
+        ? {
+            entry: plan.entryHigh?.price ?? lastPrice,
+            stopLoss: plan.stopLoss.price,
+            target1: plan.target1.price,
+            target2: plan.target2?.price ?? null,
+            riskRewardRatio: plan.riskReward1,
+          }
+        : { entry: null, stopLoss: plan.stopLoss.price, target1: plan.target1.price, target2: null, riskRewardRatio: null };
+  }
+  const dataRec = buildRecommendation(cycle, technical.indicators, { price: lastPrice, avgValue20, plan });
+  let council = buildCouncil(fundamental, technical, news, momentum, quote, plan);
 
   const sources: string[] = ["Yahoo Finance (harga & OHLCV)"];
   const warnings: string[] = [];

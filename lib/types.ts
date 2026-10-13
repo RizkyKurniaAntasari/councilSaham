@@ -160,6 +160,8 @@ export interface TechnicalReport {
   patterns: string[];
   highlights: string[];
   risks: string[];
+  /** Komponen skor teknikal: skor komponen × bobot. */
+  breakdown: { label: string; score: number; weight: number; detail: string }[];
 }
 
 export interface NewsItem {
@@ -262,6 +264,8 @@ export interface CouncilVerdict {
   keyReasons: string[];
   keyRisks: string[];
   watchlist: string[];
+  plan?: TradePlan;
+  position?: { pct: number; basis: string };
   narrative?: string;
   narrativeSource?: "ai" | "rule";
 }
@@ -333,6 +337,40 @@ export interface CycleReport {
   summary: string;
 }
 
+/** Satu komponen skor: berapa poin yang disumbangkan dan dari data apa. */
+export interface ScoreItem {
+  label: string;
+  points: number; // kontribusi bertanda terhadap skor akhir
+  detail: string;
+}
+
+export interface PriceLevel {
+  price: number;
+  pct: number; // jarak dari harga terakhir, %
+  basis: string; // rumus/alasan angka ini
+}
+
+export interface TradePlan {
+  /** BELI = rencana pembelian; PEGANG = panduan bagi pemegang saat fase bearish. */
+  mode: "BELI" | "PEGANG";
+  price: number;
+  atr: number;
+  tick: number;
+  entryLow: PriceLevel | null;
+  entryHigh: PriceLevel | null;
+  stopLoss: PriceLevel;
+  target1: PriceLevel;
+  target2: PriceLevel | null;
+  reentry: PriceLevel | null;
+  riskPct: number | null; // tengah entry → stop
+  rewardPct: number | null; // tengah entry → target 1
+  riskReward1: number | null;
+  riskReward2: number | null;
+  /** R/R ke TP1 bila beli di batas bawah zona entry. */
+  riskRewardAtLow: number | null;
+  invalidation: string;
+}
+
 export type RecAction = "BELI" | "BELI_BERTAHAP" | "PANTAU" | "AMBIL_UNTUNG" | "HINDARI";
 
 export interface DataRecommendation {
@@ -347,6 +385,10 @@ export interface DataRecommendation {
   riskReward: number | null;
   reasons: string[];
   warnings: string[];
+  /** Rincian pembentuk skor: basis fase + penyesuaian. */
+  breakdown: ScoreItem[];
+  plan: TradePlan;
+  position: { pct: number; basis: string };
 }
 
 export interface ScreenerRow {
@@ -370,7 +412,7 @@ export interface ScreenerRow {
   upTrendingReasons: string[];
   accumulationScore: number; // 0-100
   cycle: Pick<CycleReport, "phase" | "label" | "stage" | "confidence" | "scores" | "daysInPhase" | "range" | "summary">;
-  rec: DataRecommendation;
+  rec: Omit<DataRecommendation, "plan">;
   spark: number[];
 }
 

@@ -1,9 +1,12 @@
-import { clamp, pctChange } from "./indicators";
-import type { CycleReport, DataRecommendation, IndicatorSet, RecAction } from "./types";
+import { clamp } from "./indicators";
+import { pct, positionSize, rp } from "./tradeplan";
+import type { CycleReport, DataRecommendation, IndicatorSet, RecAction, ScoreItem, TradePlan } from "./types";
 
 /**
- * Rekomendasi berbasis data: menggabungkan fase siklus, momentum, aliran dana,
- * dan likuiditas menjadi satu aksi beserta level entry / stop loss / target.
+ * Rekomendasi berbasis data: skor 0–100 = basis fase siklus + penyesuaian
+ * (aliran dana, momentum, volume, tren panjang, likuiditas, risk/reward).
+ * Setiap penyesuaian dicatat di `breakdown` sehingga skor bisa dihitung ulang manual.
+ * Level harga diambil dari `TradePlan` — sumber yang sama dengan Dewan Analis.
  */
 
 export const REC_LABEL: Record<RecAction, string> = {
@@ -14,29 +17,41 @@ export const REC_LABEL: Record<RecAction, string> = {
   HINDARI: "Hindari",
 };
 
-function fmtP(v: number): string {
-  return new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(v);
-}
+/** Ambang aksi — ditampilkan juga di UI agar pengguna tahu dari mana label berasal. */
+export const REC_BANDS =
+  "≥70 Beli · 58–69 Beli (Mark Up) / Beli Bertahap · 44–57 Pantau · 30–43 Ambil Untung (Hindari bila Mark Down) · <30 Hindari. Fase Akumulasi maksimal Beli Bertahap; R/R < 1 maksimal Pantau.";
 
-/** Bulatkan ke fraksi harga BEI. */
-export function idxTick(price: number): number {
-  const tick = price < 200 ? 1 : price < 500 ? 2 : price < 2000 ? 5 : price < 5000 ? 10 : 25;
-  return Math.round(price / tick) * tick;
+export { idxTick } from "./tradeplan";
+
+function phaseBase(cycle: CycleReport): { base: number; why: string } {
+  const st = cycle.stage.toLowerCase();
+  switch (cycle.phase) {
+    case "AKUMULASI":
+      if (st.startsWith("akhir")) return { base: 70, why: "Akumulasi akhir (Sign of Strength)" };
+      if (st.startsWith("spring")) return { base: 68, why: "Akumulasi — Spring" };
+      if (st.startsWith("tengah")) return { base: 60, why: "Akumulasi tengah" };
+      return { base: 54, why: "Akumulasi awal" };
+    case "MARKUP":
+      if (st.startsWith("lanjut")) return { base: 55, why: "Mark Up lanjut (mulai overextended)" };
+      if (st.startsWith("awal")) return { base: 76, why: "Mark Up awal (baru breakout)" };
+      return { base: 70, why: "Mark Up tengah" };
+    case "DISTRIBUSI":
+      return st.startsWith("akhir") ? { base: 22, why: "Distribusi akhir (Sign of Weakness)" } : { base: 34, why: "Distribusi" };
+    default:
+      return st.startsWith("kapitulasi") ? { base: 30, why: "Mark Down — kapitulasi" } : { base: 15, why: "Mark Down berjalan" };
+  }
 }
 
 export function buildRecommendation(
   cycle: CycleReport,
   ind: IndicatorSet,
-  ctx: { price: number; avgValue20: number; supports?: number[]; resistances?: number[] },
+  ctx: { price: number; avgValue20: number; plan: TradePlan },
 ): DataRecommendation {
-  const { price, avgValue20 } = ctx;
-  const reasons: string[] = [];
-  const warnings: string[] = [];
-  const stage = cycle.stage.toLowerCase();
-  const atr = ind.atr14 ?? price * 0.03;
-  const rsi = ind.rsi14 ?? 50;
-  const cmf = cycle.metrics.cmf ?? 0;
-  const vr = ind.volume?.ratio20 ?? 1;
+  const { avgValue20, plan } = ctx;
+  const items: ScoreItem[] = [];
+  const add = (label: string, points: number, detail: string) => {
+    if (points !== 0) items.push({ label, points: Math.round(points * 10) / 10, detail });
+  };
 
   if (!cycle.available) {
     return {
@@ -49,164 +64,155 @@ export function buildRecommendation(
       target1: null,
       target2: null,
       riskReward: null,
-      reasons: ["Riwayat harga belum cukup untuk membaca siklus."],
+      reasons: ["Riwayat harga kurang dari 60 hari — siklus belum bisa dibaca."],
       warnings: [],
+      breakdown: [{ label: "Netral", points: 50, detail: "Data tidak cukup." }],
+      plan,
+      position: { pct: 0, basis: "Tidak ada alokasi — data tidak cukup." },
     };
   }
 
-  // 1. Basis dari fase siklus
-  let score: number;
-  switch (cycle.phase) {
-    case "AKUMULASI":
-      score = stage.startsWith("akhir") ? 70 : stage.startsWith("spring") ? 68 : stage.startsWith("tengah") ? 60 : 54;
-      reasons.push(`Fase ${cycle.label} (${cycle.stage}) — area pengumpulan barang, risiko turun relatif terbatas.`);
-      break;
-    case "MARKUP":
-      score = stage.startsWith("lanjut") ? 55 : stage.startsWith("awal") ? 76 : 70;
-      reasons.push(`Fase ${cycle.label} (${cycle.stage}) — tren naik sedang berjalan.`);
-      break;
-    case "DISTRIBUSI":
-      score = stage.startsWith("akhir") ? 22 : 34;
-      reasons.push(`Fase ${cycle.label} (${cycle.stage}) — pelaku besar cenderung melepas barang.`);
-      break;
-    default:
-      score = stage.startsWith("kapitulasi") ? 30 : 15;
-      reasons.push(`Fase ${cycle.label} (${cycle.stage}) — tren turun belum berakhir.`);
+  // 1. Basis fase, ditarik ke 50 sesuai keyakinan fase.
+  const { base, why } = phaseBase(cycle);
+  items.push({ label: "Basis fase siklus", points: base, detail: `${why} → basis ${base}.` });
+  const factor = 0.55 + (cycle.confidence / 100) * 0.45;
+  const shrunk = 50 + (base - 50) * factor;
+  add(
+    "Penyesuaian keyakinan fase",
+    shrunk - base,
+    `Keyakinan fase ${cycle.confidence}% → faktor ${factor.toFixed(2).replace(".", ",")}; skor ditarik ke 50: 50 + (${base} − 50) × ${factor.toFixed(2).replace(".", ",")} = ${shrunk.toFixed(1).replace(".", ",")}.`,
+  );
+
+  // 2. Aliran dana (Chaikin Money Flow 40H)
+  const cmf = cycle.metrics.cmf;
+  if (cmf !== null) {
+    const p = cmf > 0.1 ? 6 : cmf > 0.03 ? 3 : cmf < -0.1 ? -6 : cmf < -0.03 ? -3 : 0;
+    add("Aliran dana (CMF 40H)", p, `CMF ${cmf.toFixed(2).replace(".", ",")}: >0,10 = +6, >0,03 = +3, <−0,03 = −3, <−0,10 = −6.`);
   }
 
-  // Keyakinan rendah menarik skor ke tengah
-  score = 50 + (score - 50) * (0.55 + (cycle.confidence / 100) * 0.45);
-
-  // 2. Aliran dana
-  if (cmf > 0.1) {
-    score += 6;
-    reasons.push(`Aliran dana masuk kuat (CMF ${cmf.toFixed(2)}).`);
-  } else if (cmf > 0.03) {
-    score += 3;
-  } else if (cmf < -0.1) {
-    score -= 6;
-    warnings.push(`Aliran dana keluar (CMF ${cmf.toFixed(2)}).`);
-  } else if (cmf < -0.03) {
-    score -= 3;
+  // 3. Momentum MACD
+  if (ind.macd) {
+    const p = ind.macd.hist > 0 ? 4 : ind.macd.hist < 0 ? -3 : 0;
+    add(
+      "Momentum MACD",
+      p,
+      `Histogram ${ind.macd.hist.toFixed(2).replace(".", ",")} (${p > 0 ? "MACD di atas sinyal" : "MACD di bawah sinyal"}).`,
+    );
   }
 
-  // 3. Momentum
-  if (ind.macd && ind.macd.hist > 0 && ind.macd.macd > ind.macd.signal) {
-    score += 4;
-    reasons.push("MACD di atas garis sinyal — momentum menguat.");
-  } else if (ind.macd && ind.macd.hist < 0) {
-    score -= 3;
-  }
-  if (rsi > 75) {
-    score -= 8;
-    warnings.push(`RSI ${rsi.toFixed(0)} — jenuh beli, rawan koreksi; jangan kejar harga.`);
-  } else if (rsi < 30 && cycle.phase !== "MARKDOWN") {
-    score += 3;
-    reasons.push(`RSI ${rsi.toFixed(0)} — jenuh jual, peluang pantulan.`);
-  } else if (rsi >= 50 && rsi <= 68) {
-    score += 3;
+  // 4. RSI
+  const rsi = ind.rsi14;
+  if (rsi !== null) {
+    const p = rsi > 75 ? -8 : rsi < 30 && cycle.phase !== "MARKDOWN" ? 3 : rsi >= 50 && rsi <= 68 ? 3 : 0;
+    add(
+      "RSI(14)",
+      p,
+      `RSI ${rsi.toFixed(1).replace(".", ",")}: >75 jenuh beli = −8, 50–68 sehat = +3, <30 jenuh jual (bukan Mark Down) = +3.`,
+    );
   }
 
-  // 4. Konfirmasi volume
-  const up = (ind.return1d ?? 0) > 0;
-  if (vr >= 2 && up) {
-    score += 5;
-    reasons.push(`Volume ${vr.toFixed(1)}x rata-rata saat harga naik — ada partisipasi besar.`);
-  } else if (vr >= 2 && !up) {
-    score -= 5;
-    warnings.push(`Volume ${vr.toFixed(1)}x rata-rata saat harga turun — tekanan jual besar.`);
+  // 5. Konfirmasi volume hari terakhir
+  const vr = ind.volume?.ratio20 ?? null;
+  if (vr !== null && vr >= 2) {
+    const up = (ind.return1d ?? 0) > 0;
+    add(
+      "Konfirmasi volume",
+      up ? 5 : -5,
+      `Volume ${vr.toFixed(1).replace(".", ",")}× rata-rata 20H saat harga ${up ? "naik" : "turun"} (${pct(ind.return1d ?? 0)}).`,
+    );
   }
 
-  // 5. Tren jangka panjang
+  // 6. Tren jangka panjang
   if (ind.ma200 !== null) {
-    if (price > ind.ma200) score += 2;
-    else score -= 2;
+    const above = ctx.price > ind.ma200;
+    add("Tren panjang (MA200)", above ? 2 : -2, `Harga ${above ? "di atas" : "di bawah"} MA200 ${rp(ind.ma200)}.`);
   }
 
-  // 6. Likuiditas
-  if (avgValue20 < 1e9) {
-    score -= 10;
-    warnings.push("Likuiditas tipis (nilai transaksi < Rp1 M/hari) — sulit keluar-masuk, rawan digoreng.");
-  } else if (avgValue20 < 5e9) {
-    score -= 4;
-    warnings.push("Likuiditas terbatas (< Rp5 M/hari) — gunakan ukuran posisi kecil.");
-  }
-  if (ind.atrPct !== null && ind.atrPct > 6) {
-    warnings.push(`Volatilitas tinggi (ATR ${ind.atrPct.toFixed(1)}%) — stop loss lebar, kecilkan posisi.`);
+  // 7. Likuiditas
+  const liqM = avgValue20 / 1e9;
+  if (avgValue20 < 1e9) add("Likuiditas", -10, `Nilai transaksi rata-rata 20H Rp${liqM.toFixed(2).replace(".", ",")} M < Rp1 M/hari.`);
+  else if (avgValue20 < 5e9) add("Likuiditas", -4, `Nilai transaksi rata-rata 20H Rp${liqM.toFixed(1).replace(".", ",")} M < Rp5 M/hari.`);
+
+  // 8. Risk/reward rencana
+  if (plan.mode === "BELI" && plan.riskReward1 !== null && plan.riskReward1 < 1.2) {
+    add(
+      "Risk/reward kurang",
+      -6,
+      `R/R ke target 1 hanya 1:${plan.riskReward1.toFixed(2).replace(".", ",")} (< 1:1,2).`,
+    );
   }
 
-  score = Math.round(clamp(score));
+  const raw = items.reduce((a, b) => a + b.points, 0);
+  const score = Math.round(clamp(raw));
 
   // Aksi
+  const st = cycle.stage.toLowerCase();
   let action: RecAction;
   if (score >= 70) action = "BELI";
-  else if (score >= 58) action = cycle.phase === "MARKUP" && !stage.startsWith("lanjut") ? "BELI" : "BELI_BERTAHAP";
+  else if (score >= 58) action = cycle.phase === "MARKUP" && !st.startsWith("lanjut") ? "BELI" : "BELI_BERTAHAP";
   else if (score >= 44) action = "PANTAU";
   else if (score >= 30) action = cycle.phase === "MARKDOWN" ? "HINDARI" : "AMBIL_UNTUNG";
   else action = "HINDARI";
   if (action === "BELI" && cycle.phase === "AKUMULASI") action = "BELI_BERTAHAP";
+  if ((action === "BELI" || action === "BELI_BERTAHAP") && plan.mode !== "BELI") action = "PANTAU";
+  // Potensi untung lebih kecil dari risiko → jangan beli di harga sekarang.
+  const rrBlocked =
+    (action === "BELI" || action === "BELI_BERTAHAP") && plan.riskReward1 !== null && plan.riskReward1 < 1;
+  if (rrBlocked) action = "PANTAU";
 
-  // Level harga
-  const supports = (ctx.supports ?? []).filter((s) => s < price);
-  const resistances = (ctx.resistances ?? []).filter((r) => r > price);
-  let entry: DataRecommendation["entry"] = null;
-  let stopLoss: number | null = null;
-  let target1: number | null = null;
-  let target2: number | null = null;
-  let horizon = "—";
-
-  if (action === "BELI" || action === "BELI_BERTAHAP" || action === "PANTAU") {
-    if (cycle.phase === "AKUMULASI") {
-      const lo = Math.max(cycle.range.low, price - atr * 1.5);
-      entry = { low: idxTick(Math.min(lo, price)), high: idxTick(price) };
-      stopLoss = idxTick(Math.min(cycle.range.low - atr * 0.5, price - atr * 1.5));
-      const height = cycle.range.high - cycle.range.low;
-      target1 = idxTick(Math.max(cycle.range.high, price + atr * 2));
-      target2 = idxTick(Math.max(cycle.range.high + height, price + atr * 4));
-      horizon = "Menengah (1–3 bulan) — cicil di area bawah rentang, tambah saat breakout";
-    } else {
-      const pullback = Math.max(ind.ma20 ?? price - atr, price - atr * 1.2);
-      entry = { low: idxTick(Math.min(pullback, price - atr * 0.5)), high: idxTick(price) };
-      const supportStop = supports[0] ? supports[0] - atr * 0.3 : price - atr * 2;
-      stopLoss = idxTick(Math.max(Math.min(supportStop, price - atr * 1.5), price - atr * 3));
-      // Resistance yang terlalu dekat bukan target yang layak — ambil yang memberi ruang ≥ 1,5x ATR.
-      const farEnough = resistances.filter((r) => r >= price + atr * 1.5);
-      target1 = idxTick(farEnough[0] ?? price + atr * 3);
-      target2 = idxTick(Math.max(farEnough[1] ?? price + atr * 5, target1 + atr));
-      horizon = cycle.phase === "MARKUP" ? "Pendek–menengah (2–6 minggu) — ikuti tren, beli saat pullback" : "Tunggu konfirmasi sebelum masuk";
-    }
-    if (stopLoss !== null && stopLoss <= 0) stopLoss = null;
-  } else {
-    horizon = action === "AMBIL_UNTUNG" ? "Kurangi posisi saat pantulan" : "Jauhi sampai muncul tanda akumulasi";
-    if (supports[0]) warnings.push(`Support terdekat di ${fmtP(supports[0])} — bila jebol, penurunan bisa berlanjut.`);
+  // Alasan & peringatan dengan angka — diambil dari komponen skor terbesar.
+  const reasons: string[] = [`${why}: ${cycle.summary.split(" — ")[0]}.`];
+  const warnings: string[] = [];
+  for (const it of items.filter((x) => x.label !== "Basis fase siklus" && x.label !== "Penyesuaian keyakinan fase").sort((a, b) => Math.abs(b.points) - Math.abs(a.points))) {
+    const line = `${it.label} (${it.points > 0 ? "+" : ""}${String(it.points).replace(".", ",")}): ${it.detail}`;
+    if (it.points > 0 && reasons.length < 5) reasons.push(line);
+    if (it.points < 0 && warnings.length < 4) warnings.push(line);
+  }
+  if (rrBlocked) {
+    warnings.unshift(
+      `Aksi diturunkan ke Pantau: R/R 1:${plan.riskReward1!.toFixed(2).replace(".", ",")} < 1 dari tengah zona entry — potensi untung ke TP1 lebih kecil dari risiko.` +
+        (plan.entryLow && plan.riskRewardAtLow !== null && plan.riskRewardAtLow >= 1
+          ? ` Beli hanya di batas bawah ${rp(plan.entryLow.price)} (R/R 1:${plan.riskRewardAtLow.toFixed(2).replace(".", ",")}).`
+          : " Tunggu struktur harga yang lebih baik."),
+    );
+  }
+  if (ind.atrPct !== null && ind.atrPct > 6) {
+    warnings.push(`Volatilitas tinggi: ATR ${ind.atrPct.toFixed(1).replace(".", ",")}% dari harga — stop lebar, posisi diperkecil otomatis.`);
   }
 
-  const risk = entry && stopLoss !== null ? entry.high - stopLoss : null;
-  const riskReward = risk && risk > 0 && target1 ? (target1 - entry!.high) / risk : null;
-  if (riskReward !== null && riskReward < 1.2 && (action === "BELI" || action === "BELI_BERTAHAP")) {
-    warnings.push(`Rasio risk/reward hanya ${riskReward.toFixed(1)} — tunggu harga lebih dekat ke area entry bawah.`);
-    score = Math.max(0, score - 6);
-    if (action === "BELI" && score < 70) action = "BELI_BERTAHAP";
-  }
-  if (ind.distFrom52wHigh !== null && ind.distFrom52wHigh > -3 && cycle.phase === "MARKUP") {
-    reasons.push("Harga di dekat puncak 52 minggu — kekuatan relatif tinggi.");
-  }
-  if (target1 && entry) {
-    const up = pctChange(entry.high, target1);
-    if (up > 0) reasons.push(`Potensi ke target pertama ${up.toFixed(1).replace(".", ",")}%.`);
-  }
+  const position =
+    action === "BELI"
+      ? positionSize(plan, 1, "faktor aksi Beli 1")
+      : action === "BELI_BERTAHAP"
+        ? positionSize(plan, 0.6, "faktor aksi Beli Bertahap 0,6")
+        : { pct: 0, basis: "Tidak ada alokasi baru pada aksi ini." };
 
+  const horizon =
+    action === "BELI" || action === "BELI_BERTAHAP"
+      ? cycle.phase === "AKUMULASI"
+        ? "1–3 bulan — cicil di zona entry, tambah saat breakout puncak rentang"
+        : "2–6 minggu — ikuti tren, beli saat pullback ke zona entry"
+      : action === "PANTAU"
+        ? "Tunggu — masuk hanya bila harga turun ke zona entry atau skor membaik"
+        : action === "AMBIL_UNTUNG"
+          ? "Kurangi posisi saat harga memantul ke area jual"
+          : "Jauhi sampai muncul tanda akumulasi";
+
+  const buy = plan.mode === "BELI";
   return {
     action,
     label: REC_LABEL[action],
     score,
     horizon,
-    entry,
-    stopLoss,
-    target1,
-    target2,
-    riskReward,
-    reasons: reasons.slice(0, 5),
-    warnings: warnings.slice(0, 4),
+    entry: buy && plan.entryLow && plan.entryHigh ? { low: plan.entryLow.price, high: plan.entryHigh.price } : null,
+    stopLoss: buy ? plan.stopLoss.price : null,
+    target1: buy ? plan.target1.price : null,
+    target2: buy ? plan.target2?.price ?? null : null,
+    riskReward: buy ? plan.riskReward1 : null,
+    reasons,
+    warnings,
+    breakdown: items,
+    plan,
+    position,
   };
 }

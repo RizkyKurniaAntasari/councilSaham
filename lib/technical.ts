@@ -179,6 +179,7 @@ export function buildTechnical(candles: Candle[]): TechnicalReport {
     patterns: [],
     highlights: [],
     risks: ["Riwayat harga terlalu pendek untuk analisis teknikal yang bermakna."],
+    breakdown: [],
   };
   if (candles.length < 30) return empty;
 
@@ -342,6 +343,64 @@ export function buildTechnical(candles: Candle[]): TechnicalReport {
       ((ind.return5d ?? 0) * 0.8 + (ind.return20d ?? 0) * 0.5 + (ind.return60d ?? 0) * 0.25),
   );
 
+  const f1 = (v: number) => v.toFixed(1).replace(".", ",");
+  const aboveCount = maRefs.filter((r) => r.value !== null && price > r.value).length;
+  const maCount = maRefs.filter((r) => r.value !== null).length;
+  const breakdown: TechnicalReport["breakdown"] = [
+    {
+      label: "Posisi harga vs MA20/50/200",
+      score: Math.round(maAlignmentScore),
+      weight: 0.22,
+      detail: `Di atas ${aboveCount} dari ${maCount} MA (bobot MA20 1, MA50 1,2, MA200 1,5).`,
+    },
+    {
+      label: "RSI(14)",
+      score: rsiScore,
+      weight: 0.13,
+      detail: ind.rsi14 !== null ? `RSI ${f1(ind.rsi14)}: ≥70 jenuh beli=35, 55–70=78, 45–55=55, 30–45=38, <30=62.` : "Tidak tersedia.",
+    },
+    {
+      label: "MACD(12,26,9)",
+      score: macdScore,
+      weight: 0.17,
+      detail: ind.macd
+        ? `MACD ${ind.macd.macd > ind.macd.signal ? "di atas" : "di bawah"} sinyal, ${ind.macd.macd > 0 ? "di atas" : "di bawah"} nol.`
+        : "Tidak tersedia.",
+    },
+    {
+      label: "Volume vs rata-rata 20H",
+      score: volScore,
+      weight: 0.12,
+      detail: ind.volume ? `Rasio ${ind.volume.ratio20.toFixed(2).replace(".", ",")}× saat harga ${(ind.return1d ?? 0) > 0 ? "naik" : "turun/datar"}.` : "Tidak tersedia.",
+    },
+    {
+      label: "Aliran dana OBV (20H)",
+      score: Math.round(obvScore),
+      weight: 0.09,
+      detail: ind.obvSlopePct !== null ? `Kemiringan OBV ${f1(ind.obvSlopePct)}% → 50 + kemiringan × 0,6.` : "Tidak tersedia.",
+    },
+    {
+      label: "Posisi dalam rentang 52 minggu",
+      score: Math.round(posScore),
+      weight: 0.12,
+      detail: "0 = di dasar 52 minggu, 100 = di puncak.",
+    },
+    {
+      label: "Return 5/20/60 hari",
+      score: Math.round(returnScore),
+      weight: 0.15,
+      detail: `50 + 0,8×(${f1(ind.return5d ?? 0)}%) + 0,5×(${f1(ind.return20d ?? 0)}%) + 0,25×(${f1(ind.return60d ?? 0)}%).`,
+    },
+  ];
+  if (alignmentBonus !== 0) {
+    breakdown.push({
+      label: "Bonus susunan MA",
+      score: alignmentBonus,
+      weight: 1,
+      detail: alignmentBonus > 0 ? "MA20 > MA50 > MA200: +10 poin." : "MA20 < MA50 < MA200: −10 poin.",
+    });
+  }
+
   const score = clamp(
     maAlignmentScore * 0.22 +
       rsiScore * 0.13 +
@@ -410,5 +469,6 @@ export function buildTechnical(candles: Candle[]): TechnicalReport {
     patterns,
     highlights,
     risks,
+    breakdown,
   };
 }

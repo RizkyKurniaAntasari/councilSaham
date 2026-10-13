@@ -26,6 +26,16 @@ Halaman `/pasar` memindai OHLCV 1 tahun seluruh emiten di `data/idx-tickers.ts` 
 
 Deteksi fase (`lib/cycle.ts`) menilai tiap fase dari struktur tren (harga vs MA50/MA200, kemiringan MA50, higher high/lower low), konteks tren sebelumnya, aliran dana (CMF 40 hari, volume hari naik vs turun), ADX, dan posisi dalam rentang 52 minggu. Skor dinormalisasi jadi probabilitas, dilengkapi sub-tahap (mis. *Spring*, *Sign of Strength*, *Upthrust*, *Kapitulasi*), lama fase, riwayat fase ±1 tahun, serta pemicu & pembatal menuju fase berikutnya. Rekomendasi (`lib/recommend.ts`) menggabungkan fase tersebut dengan momentum, konfirmasi volume, dan likuiditas. Panel yang sama juga muncul di halaman analisis tiap emiten.
 
+### Rencana transaksi & perhitungan yang bisa diperiksa
+
+Seluruh level harga (zona entry, stop loss, target, syarat beli kembali) berasal dari satu mesin, `lib/tradeplan.ts`, sehingga Dewan Analis, panel Siklus, panel Teknikal, dan Radar Pasar selalu menampilkan angka yang sama. Setiap level:
+
+- dibulatkan ke fraksi harga BEI (stop & target dibulatkan ke bawah) dan mencatat pembulatannya,
+- membawa rumusnya, mis. *"Support Rp 2.910 − 0,25×ATR"* atau *"Resistance pertama dengan ruang ≥ 1,5×ATR"*,
+- dihitung R/R-nya dari tengah zona entry; bila R/R < 1 aksi diturunkan ke *Pantau* dan disarankan antre di batas bawah zona.
+
+Ukuran posisi berbasis risiko: `1% portofolio ÷ jarak stop × faktor keyakinan` (maks. 25%). Skor Dewan, skor teknikal, dan skor rekomendasi data masing-masing punya rincian poin yang totalnya sama dengan skor akhir.
+
 ## Fitur inti: validasi story & momentum
 
 Narasi dari berita tidak ditelan mentah. Setiap story yang terdeteksi diuji lewat **9 pemeriksaan silang**:
