@@ -26,7 +26,7 @@ function tag(block: string, name: string): string {
   return m ? decodeEntities(m[1]) : "";
 }
 
-interface RawItem {
+export interface RawItem {
   title: string;
   url: string;
   source: string;
@@ -34,8 +34,9 @@ interface RawItem {
   snippet: string;
 }
 
-async function fetchGoogleNews(query: string): Promise<RawItem[]> {
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=id&gl=ID&ceid=ID:id`;
+export async function fetchGoogleNews(query: string, locale: "id" | "en" = "id"): Promise<RawItem[]> {
+  const loc = locale === "en" ? "hl=en-US&gl=US&ceid=US:en" : "hl=id&gl=ID&ceid=ID:id";
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&${loc}`;
   try {
     const res = await fetch(url, {
       headers: { "User-Agent": UA, Accept: "application/rss+xml,application/xml,text/xml,*/*" },
@@ -105,7 +106,7 @@ async function fetchNewsApi(query: string): Promise<RawItem[]> {
   }
 }
 
-function normKey(title: string): string {
+export function normKey(title: string): string {
   return title
     .toLowerCase()
     .replace(/[^a-z0-9 ]/g, "")

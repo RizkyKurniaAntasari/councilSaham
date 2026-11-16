@@ -19,7 +19,10 @@ export const REC_LABEL: Record<RecAction, string> = {
 
 /** Ambang aksi — ditampilkan juga di UI agar pengguna tahu dari mana label berasal. */
 export const REC_BANDS =
-  "≥70 Beli · 58–69 Beli (Mark Up) / Beli Bertahap · 44–57 Pantau · 30–43 Ambil Untung (Hindari bila Mark Down) · <30 Hindari. Fase Akumulasi maksimal Beli Bertahap; R/R < 1 maksimal Pantau.";
+  "≥70 Beli · 58–69 Beli (Mark Up) / Beli Bertahap · 44–57 Pantau · 30–43 Ambil Untung (Hindari bila Mark Down) · <30 Hindari. Fase Akumulasi maksimal Beli Bertahap; R/R < 1, timing Hindari Dulu, atau harga > 10% di atas zona ideal maksimal Pantau.";
+
+/** Jarak harga di atas zona ideal (persen) yang membuat aksi beli tidak lagi realistis. */
+export const MAX_CHASE_PCT = 10;
 
 export { idxTick } from "./tradeplan";
 
@@ -199,6 +202,15 @@ export function buildRecommendation(
   const rrBlocked =
     (action === "BELI" || action === "BELI_BERTAHAP") && plan.riskReward1 !== null && plan.riskReward1 < 1;
   if (rrBlocked) action = "PANTAU";
+  const isBuy = () => action === "BELI" || action === "BELI_BERTAHAP";
+  // Timing menyatakan "Hindari Dulu" (pola bearish kuat / struktur turun) → label beli
+  // akan bertentangan dengan panel Timing Beli; turunkan ke Pantau.
+  const timingBlocked = isBuy() && ctx.entry?.verdict === "HINDARI";
+  if (timingBlocked) action = "PANTAU";
+  // Zona ideal terlalu jauh di bawah harga → "beli" tidak bisa dieksekusi di harga sekarang.
+  const farAbove =
+    isBuy() && plan.priceVsZone === "DI_ATAS" && (plan.distToZonePct ?? 0) > MAX_CHASE_PCT && !!plan.entryLow && !!plan.entryHigh;
+  if (farAbove) action = "PANTAU";
 
   // Alasan & peringatan dengan angka — diambil dari komponen skor terbesar.
   const reasons: string[] = [`${why}: ${cycle.summary.split(" — ")[0]}.`];
@@ -214,6 +226,16 @@ export function buildRecommendation(
         (plan.entryLow && plan.riskRewardAtLow !== null && plan.riskRewardAtLow >= 1
           ? ` Beli hanya di batas bawah ${rp(plan.entryLow.price)} (R/R 1:${plan.riskRewardAtLow.toFixed(2).replace(".", ",")}).`
           : " Tunggu struktur harga yang lebih baik."),
+    );
+  }
+  if (timingBlocked && ctx.entry) {
+    warnings.unshift(
+      `Aksi diturunkan ke Pantau: timing ${ctx.entry.label} — ${ctx.entry.situation}`.trim(),
+    );
+  }
+  if (farAbove) {
+    warnings.unshift(
+      `Aksi diturunkan ke Pantau: harga ${rp(ctx.price)} sudah ${pct(plan.distToZonePct ?? 0)} di atas zona ideal ${rp(plan.entryLow!.price)}–${rp(plan.entryHigh!.price)} (batas ${MAX_CHASE_PCT}%). Antre di zona itu atau tunggu struktur baru terbentuk.`,
     );
   }
   const chasing = (action === "BELI" || action === "BELI_BERTAHAP") && plan.priceVsZone === "DI_ATAS" && plan.entryLow && plan.entryHigh;

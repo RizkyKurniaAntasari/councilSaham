@@ -4,6 +4,9 @@
   "regions": ["sin1"],
   "functions": {
     "app/api/analysis/[ticker]/route.ts": { "maxDuration": 60 },
-    "app/api/council/route.ts": { "maxDuration": 120 }
+    "app/api/council/route.ts": { "maxDuration": 120 },
+    "app/api/screener/route.ts": { "maxDuration": 60 },
+    "app/api/markets/route.ts": { "maxDuration": 30 },
+    "app/api/market-news/route.ts": { "maxDuration": 30 }
   }
 }

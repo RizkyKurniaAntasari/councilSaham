@@ -60,6 +60,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 ✅<span className="hidden lg:inline"> Siap Masuk</span>
               </Link>
               <Link
+                href="/berita"
+                aria-label="Berita Pasar"
+                className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-medium text-slate-200 transition hover:bg-white/10 hover:text-white sm:border-transparent sm:bg-transparent sm:font-normal sm:text-slate-300"
+              >
+                📰<span className="hidden lg:inline"> Berita</span>
+              </Link>
+              <Link
                 href="/pasar"
                 aria-label="Radar Pasar"
                 className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-medium text-slate-200 transition hover:bg-white/10 hover:text-white sm:border-transparent sm:bg-transparent sm:font-normal sm:text-slate-300"
@@ -82,7 +89,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               keterbukaan informasi IDX, dan penasihat berizin.
             </p>
             <p className="mt-3 text-xs text-slate-600">
-              Sumber data: Yahoo Finance, Google News. Dibangun dengan Next.js.
+              Sumber data: Yahoo Finance, Google News, CoinGecko. Dibangun dengan Next.js.
             </p>
           </div>
         </footer>

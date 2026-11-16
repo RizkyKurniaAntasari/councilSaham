@@ -10,6 +10,7 @@ Aplikasi Next.js untuk menganalisis emiten Bursa Efek Indonesia. Cari satu kode 
 - **Deteksi momentum & validasi story** — fitur inti
 - **Rekomendasi Dewan Analis** — 7 sudut pandang, digabung dengan bobot, lengkap dengan rencana aksi
 - **Siklus saham (Wyckoff)** — posisi emiten dalam 4 siklus: Akumulasi, Mark Up, Distribusi, Mark Down
+- **Berita Pasar** (`/berita`) — berita di luar emiten: IHSG, emas & XAU/USD, indeks global, NFT, kripto, ekonomi & rupiah, plus ringkasan harga lintas aset
 - **Radar Pasar** (`/pasar`) — saham trending, saham di tahap akumulasi, peta 4 siklus, dan rekomendasi berbasis data untuk seluruh daftar emiten
 
 ## Timing Beli — pola candlestick & struktur MA
@@ -32,6 +33,16 @@ Syarat selalu berbentuk **skenario** yang konsisten — syarat, zona beli, stop,
 ### Siap Masuk (`/siap-masuk`)
 
 Daftar terpisah berisi saham yang timing-nya **sudah** Siap Beli, rekomendasinya bukan Ambil Untung/Hindari, R/R ≥ 1:1,2, dan likuid — lengkap dengan alasan, zona beli, stop loss, target, ukuran posisi, dan batas validitas setup. Bagian *Hampir siap* menampilkan saham yang tinggal satu pemicu (≤ 3% dari harga) dengan R/R ≥ 1:1,5.
+
+## Berita Pasar & ringkasan lintas aset (`/berita`)
+
+Konteks pasar di luar satu emiten:
+
+- **Ringkasan Pasar** — IHSG, LQ45, USD/IDR, sepuluh indeks global (S&P 500, Dow Jones, Nasdaq, Nikkei, Hang Seng, Shanghai, KOSPI, STI, FTSE, DAX), emas dunia, perak, minyak, Bitcoin, dan Ethereum, masing-masing dengan perubahan harian, return 20 hari, dan sparkline. **Emas per gram dalam rupiah** dihitung dari harga emas dunia × kurs ÷ 31,1 g (acuan, bukan harga ritel).
+- **Berita per topik** — IHSG, Saham, Emas & XAU, Indeks global, NFT, Kripto, Ekonomi & rupiah. Hasil Google News disaring ulang dengan kata kunci topik, digabung tanpa duplikat, dan diberi skor sentimen. Bisa dicari dan disaring per sentimen; topik bisa dibagikan lewat `?topik=emas`.
+- **NFT** — harga dasar (floor) lima koleksi utama dari CoinGecko.
+
+Catatan: Yahoo tidak menyediakan XAU/USD spot, jadi acuan emas memakai kontrak berjangka COMEX terdekat (`GC=F`); selisihnya terhadap spot umumnya di bawah 1%.
 
 ## IHSG
 
@@ -58,6 +69,8 @@ Seluruh level harga (zona entry, stop loss, target, syarat beli kembali) berasal
 - dibulatkan ke fraksi harga BEI (stop & target dibulatkan ke bawah) dan mencatat pembulatannya,
 - membawa rumusnya, mis. *"Support Rp 2.910 − 0,25×ATR"* atau *"Resistance pertama dengan ruang ≥ 1,5×ATR"*,
 - dihitung R/R-nya dari tengah zona entry; bila R/R < 1 aksi diturunkan ke *Pantau* dan disarankan antre di batas bawah zona.
+
+Label beli tidak pernah bertentangan dengan panel lain: aksi *Beli* / *Beli Bertahap* juga diturunkan ke *Pantau* bila Timing Beli menyatakan *Hindari Dulu*, atau bila harga sudah lebih dari 10% di atas zona beli ideal (zona itu tidak bisa dieksekusi di harga sekarang).
 
 Ukuran posisi berbasis risiko: `1% portofolio ÷ jarak stop × faktor keyakinan` (maks. 25%). Skor Dewan, skor teknikal, dan skor rekomendasi data masing-masing punya rincian poin yang totalnya sama dengan skor akhir.
 
@@ -143,7 +156,11 @@ Pemanggilan Claude memakai `client.messages.create` biasa dengan instruksi forma
 | Harga & OHLCV (2 tahun) | Yahoo Finance chart API |
 | Laporan keuangan, kepemilikan, profil | Yahoo Finance quoteSummary |
 | Berita | Google News RSS (`hl=id&gl=ID`), opsional NewsAPI.org |
+| Indeks global, emas, komoditas, kripto | Yahoo Finance chart API |
+| Harga dasar NFT | CoinGecko (tanpa API key) |
 | Indikator teknikal | Dihitung sendiri di server (`lib/indicators.ts`) |
+
+Yahoo sering mengirim candle harian sesi terakhir dengan harga penutupan kosong; `lib/yahoo.ts` mengisinya dari harga pasar terakhir di metadata supaya analisis tidak tertinggal satu hari bursa.
 
 Semua request di-cache di memori per instance (TTL 3–15 menit) dengan dedupe request paralel, sehingga beberapa pengguna yang membuka ticker sama tidak menembak sumber berkali-kali.
 
@@ -155,7 +172,10 @@ app/
   saham/[ticker]/page.tsx     Halaman analisis
   api/analysis/[ticker]/      Endpoint analisis lengkap
   api/council/                Sintesis naratif AI (opsional)
+  berita/page.tsx             Berita pasar & ringkasan lintas aset
   api/news/                   Endpoint berita saja
+  api/market-news/            Berita pasar per topik
+  api/markets/                Kutipan lintas aset (+ ?nft=1 harga dasar NFT)
   api/search/                 Autocomplete ticker
 components/                   Panel UI (chart, dewan, story, teknikal, dll)
 lib/
@@ -164,6 +184,8 @@ lib/
   technical.ts    Skor & sinyal teknikal
   fundamental.ts  Skor fundamental per metrik
   news.ts         Pengambilan & penilaian berita
+  marketnews.ts   Berita pasar per topik (IHSG, emas, global, NFT, kripto, makro)
+  markets.ts      Kutipan lintas aset, emas per gram, harga dasar NFT
   sentiment.ts    Leksikon sentimen + tema (bahasa Indonesia)
   story.ts        Deteksi momentum & validasi story
   council.ts      Rule engine Dewan Analis

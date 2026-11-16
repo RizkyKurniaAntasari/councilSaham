@@ -209,7 +209,7 @@ async function scanOne(info: IdxTicker, ihsg: IhsgReport | null): Promise<Screen
 }
 
 export async function runScreener(universe: IdxTicker[] = IDX_TICKERS): Promise<ScreenerResult> {
-  return cached(`screener:v9:${universe.length}`, 10 * 60 * 1000, async () => {
+  return cached(`screener:v10:${universe.length}`, 10 * 60 * 1000, async () => {
     const ihsg = await getIhsg().catch(() => null);
     const rows: ScreenerRow[] = [];
     const failed: string[] = [];

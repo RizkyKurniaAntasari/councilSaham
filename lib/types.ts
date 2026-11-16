@@ -563,3 +563,71 @@ export interface EntrySignal {
   reasons: string[];
   breakdown: ScoreItem[];
 }
+
+/* ------------------------------------------------------------------ */
+/* Pasar global & berita pasar                                         */
+/* ------------------------------------------------------------------ */
+
+export interface MarketQuote {
+  id: string;
+  group: string;
+  name: string;
+  symbol: string;
+  currency: string;
+  price: number;
+  change: number;
+  changePct: number;
+  return20d: number | null;
+  spark: number[];
+  updatedAt: number;
+}
+
+export interface GoldIdr {
+  usdPerOz: number;
+  usdIdr: number;
+  idrPerGram: number;
+  changePct: number;
+}
+
+export interface NftFloor {
+  id: string;
+  name: string;
+  symbol: string;
+  nativeCurrency: string;
+  floorNative: number;
+  floorUsd: number | null;
+  change24hPct: number | null;
+  volume24hUsd: number | null;
+}
+
+export interface MarketsReport {
+  generatedAt: number;
+  quotes: MarketQuote[];
+  gold: GoldIdr | null;
+  failed: string[];
+}
+
+export type MarketTopicId = "ihsg" | "saham" | "emas" | "global" | "nft" | "kripto" | "ekonomi";
+
+export interface MarketNewsItem {
+  id: string;
+  topic: MarketTopicId;
+  topicLabel: string;
+  title: string;
+  url: string;
+  source: string;
+  publishedAt: number;
+  snippet?: string;
+  sentiment: number; // -1..1
+  sentimentLabel: "POSITIF" | "NEGATIF" | "NETRAL";
+}
+
+export interface MarketNewsReport {
+  generatedAt: number;
+  topic: MarketTopicId | "semua";
+  topics: { id: MarketTopicId; label: string; icon: string; count: number }[];
+  items: MarketNewsItem[];
+  counts: { positive: number; negative: number; neutral: number; total: number };
+  avgSentiment: number;
+  last24h: number;
+}

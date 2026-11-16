@@ -71,7 +71,6 @@ export const IDX_TICKERS: IdxTicker[] = [
   { code: "ESSA", name: "ESSA Industries Indonesia", sector: "Kimia Dasar" },
   { code: "EXCL", name: "XLSmart Telecom Sejahtera", sector: "Telekomunikasi" },
   { code: "FILM", name: "MD Pictures", sector: "Media" },
-  { code: "FREN", name: "Smartfren Telecom", sector: "Telekomunikasi" },
   { code: "GGRM", name: "Gudang Garam", sector: "Konsumer" },
   { code: "GIAA", name: "Garuda Indonesia", sector: "Transportasi & Logistik" },
   { code: "GJTL", name: "Gajah Tunggal", sector: "Aneka Industri" },

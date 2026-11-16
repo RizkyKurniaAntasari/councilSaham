@@ -25,6 +25,11 @@ const FEATURES = [
     body: "Berita dikumpulkan dari agregator Indonesia, disaring relevansinya terhadap emiten, lalu diberi skor sentimen memakai leksikon pasar modal berbahasa Indonesia — bukan kamus sentimen bahasa Inggris.",
   },
   {
+    icon: "🌐",
+    title: "Berita Pasar Lintas Aset",
+    body: "Bukan hanya berita emiten: arah IHSG, harga emas & XAU/USD (termasuk rupiah per gram), indeks global seperti Wall Street, Nikkei, dan Hang Seng, NFT, kripto, serta ekonomi & rupiah — dengan ringkasan harga dan skor sentimen.",
+  },
+  {
     icon: "📊",
     title: "Fundamental Bergradasi",
     body: "PER, PBV, ROE, ROA, DER, margin, pertumbuhan, arus kas bebas, dividend yield — masing-masing diberi skor terhadap patokan wajar IDX, bukan sekadar ditampilkan sebagai angka mentah.",
@@ -98,6 +103,9 @@ export default function HomePage() {
           <Link href="/pasar" className="btn-ghost">
             📡 Buka Radar Pasar — saham trending, akumulasi & 4 siklus
           </Link>
+          <Link href="/berita" className="btn-ghost">
+            📰 Berita pasar — IHSG, emas & XAU, indeks global, NFT
+          </Link>
         </div>
 
         <div className="mx-auto mt-5 flex max-w-3xl flex-wrap items-center justify-center gap-2">
@@ -118,7 +126,7 @@ export default function HomePage() {
       {/* Fitur */}
       <section>
         <h2 className="text-center text-2xl font-bold tracking-tight text-white">
-          Tujuh lapis analisis, dari satu emiten sampai seluruh pasar
+          Delapan lapis analisis, dari satu emiten sampai seluruh pasar
         </h2>
         <p className="mx-auto mt-3 max-w-2xl text-center text-sm text-slate-400">
           Setiap lapisan menghasilkan skor 0–100 yang bisa ditelusuri alasannya — tidak ada angka yang muncul

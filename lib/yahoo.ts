@@ -120,15 +120,35 @@ export async function fetchChart(symbol: string, range = "2y", interval = "1d"):
 
         const ts: number[] = result.timestamp ?? [];
         const q = result.indicators?.quote?.[0] ?? {};
+        const meta: Record<string, any> = result.meta ?? {};
+
+        // Yahoo kerap mengirim candle harian sesi terakhir dengan `close: null`
+        // (open & volume terisi) — harga penutupannya hanya ada di meta. Tanpa
+        // tambalan ini sesi terakhir terbuang dan seluruh analisis tertinggal sehari.
+        const liveClose = Number(meta.regularMarketPrice);
+        const liveTime = Number(meta.regularMarketTime);
+        const offset = Number(meta.gmtoffset) || 0;
+        const dayOf = (sec: number) => Math.floor((sec + offset) / 86400);
+        const canPatch =
+          interval === "1d" && Number.isFinite(liveClose) && liveClose > 0 && Number.isFinite(liveTime);
 
         const candles: Candle[] = [];
         for (let i = 0; i < ts.length; i++) {
-          const c = q.close?.[i];
-          if (c === null || c === undefined || !Number.isFinite(c)) continue;
+          let c = q.close?.[i];
+          let patched = false;
+          if (c === null || c === undefined || !Number.isFinite(c)) {
+            if (!(canPatch && i === ts.length - 1 && dayOf(liveTime) === dayOf(ts[i]))) continue;
+            c = liveClose;
+            patched = true;
+          }
           const o = q.open?.[i] ?? c;
-          const h = q.high?.[i] ?? c;
-          const l = q.low?.[i] ?? c;
-          const v = q.volume?.[i] ?? 0;
+          let h = q.high?.[i] ?? (patched ? meta.regularMarketDayHigh : null) ?? c;
+          let l = q.low?.[i] ?? (patched ? meta.regularMarketDayLow : null) ?? c;
+          if (patched) {
+            h = Math.max(Number(h), Number(o), c);
+            l = Math.min(Number(l), Number(o), c);
+          }
+          const v = q.volume?.[i] ?? (patched ? meta.regularMarketVolume : null) ?? 0;
           candles.push({
             t: ts[i] * 1000,
             o: Number(o),
@@ -139,7 +159,7 @@ export async function fetchChart(symbol: string, range = "2y", interval = "1d"):
           });
         }
         if (!candles.length) throw new Error("tidak ada candle valid");
-        return { candles, meta: result.meta ?? {} };
+        return { candles, meta };
       } catch (err) {
         lastErr = err;
       }
