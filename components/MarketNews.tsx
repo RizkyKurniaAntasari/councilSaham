@@ -64,8 +64,13 @@ function QuoteCard({ q }: { q: MarketQuote }) {
     </>
   );
   const cls = "block rounded-xl border border-white/8 bg-white/[0.03] p-3 transition";
-  return q.id === "ihsg" ? (
-    <Link href="/ihsg" className={`${cls} hover:border-brandx/40 hover:bg-white/[0.06]`} title="Buka analisis IHSG">
+  const href = q.id === "ihsg" ? "/ihsg" : q.id === "gold" ? "/emas" : null;
+  return href ? (
+    <Link
+      href={href}
+      className={`${cls} hover:border-brandx/40 hover:bg-white/[0.06]`}
+      title={q.id === "gold" ? "Buka rekomendasi emas" : "Buka analisis IHSG"}
+    >
       {body}
     </Link>
   ) : (
@@ -139,9 +144,10 @@ function MarketStrip() {
                   <QuoteCard key={q.id} q={q} />
                 ))}
                 {g.name === "Emas & komoditas" && d.gold && (
-                  <div
-                    className="rounded-xl border border-warn/30 bg-warn/[0.06] p-3"
-                    title="Harga emas dunia dikonversi ke rupiah per gram. Belum termasuk selisih jual-beli, ongkos cetak, dan pajak — harga emas batangan ritel lebih tinggi."
+                  <Link
+                    href="/emas"
+                    className="block rounded-xl border border-warn/30 bg-warn/[0.06] p-3 transition hover:border-warn/60"
+                    title="Harga emas dunia dikonversi ke rupiah per gram. Belum termasuk selisih jual-beli, ongkos cetak, dan pajak — harga emas batangan ritel lebih tinggi. Klik untuk rekomendasi emas."
                   >
                     <div className="flex items-baseline justify-between gap-2">
                       <span className="truncate text-xs font-medium text-warn">Emas per gram</span>
@@ -154,7 +160,8 @@ function MarketStrip() {
                       ${id(d.gold.usdPerOz, 0, 0)}/oz × Rp {id(d.gold.usdIdr, 0, 0)} ÷ 31,1 g — acuan, bukan harga
                       ritel
                     </p>
-                  </div>
+                    <p className="mt-1 text-[10px] font-semibold text-warn">Lihat rekomendasi emas →</p>
+                  </Link>
                 )}
               </div>
             </div>

@@ -166,7 +166,7 @@ function RecommendationTable({ rows }: { rows: ScreenerRow[] }) {
               </Td>
               <Td right>{r.rec.riskReward !== null ? fmtNumber(r.rec.riskReward, 1) : "—"}</Td>
               <td className="min-w-[260px] max-w-[340px] px-3 py-2.5 text-[11px] leading-snug text-slate-400">
-                {r.rec.reasons[1] ?? r.rec.reasons[0]}
+                {r.rec.headline}
                 {r.rec.warnings[0] && <span className="mt-0.5 block text-warn/90">⚠ {r.rec.warnings[0]}</span>}
               </td>
             </tr>
@@ -328,7 +328,7 @@ function MobileList({ rows, kind }: { rows: ScreenerRow[]; kind: MobileKind }) {
                 : r.accumulationScore;
         const reason =
           kind === "rec"
-            ? r.rec.reasons[1] ?? r.rec.reasons[0]
+            ? r.rec.headline
             : kind === "trend"
               ? r.trendingReasons.slice(0, 2).join(" · ")
               : kind === "trendUp"

@@ -10,6 +10,7 @@ Aplikasi Next.js untuk menganalisis emiten Bursa Efek Indonesia. Cari satu kode 
 - **Deteksi momentum & validasi story** — fitur inti
 - **Rekomendasi Dewan Analis** — 7 sudut pandang, digabung dengan bobot, lengkap dengan rencana aksi
 - **Siklus saham (Wyckoff)** — posisi emiten dalam 4 siklus: Akumulasi, Mark Up, Distribusi, Mark Down
+- **Emas / XAU** (`/emas`) — rekomendasi emas dunia dengan alasan, rincian skor, zona beli, stop, target, dan setara rupiah per gram
 - **Berita Pasar** (`/berita`) — berita di luar emiten: IHSG, emas & XAU/USD, indeks global, NFT, kripto, ekonomi & rupiah, plus ringkasan harga lintas aset
 - **Radar Pasar** (`/pasar`) — saham trending, saham di tahap akumulasi, peta 4 siklus, dan rekomendasi berbasis data untuk seluruh daftar emiten
 
@@ -33,6 +34,35 @@ Syarat selalu berbentuk **skenario** yang konsisten — syarat, zona beli, stop,
 ### Siap Masuk (`/siap-masuk`)
 
 Daftar terpisah berisi saham yang timing-nya **sudah** Siap Beli, rekomendasinya bukan Ambil Untung/Hindari, R/R ≥ 1:1,2, dan likuid — lengkap dengan alasan, zona beli, stop loss, target, ukuran posisi, dan batas validitas setup. Bagian *Hampir siap* menampilkan saham yang tinggal satu pemicu (≤ 3% dari harga) dengan R/R ≥ 1:1,5.
+
+## Emas / XAU (`/emas`)
+
+Emas dunia dinilai dengan mesin yang sama seperti saham — teknikal, fase siklus, rencana transaksi, timing, dan skor rekomendasi (`lib/gold.ts`) — sehingga cara membacanya seragam. Bedanya:
+
+- harga dan seluruh level dalam **USD per troy ounce**, dengan setara **rupiah per gram** di sampingnya;
+- tidak ada penalti likuiditas bursa dan tidak ada pembanding IHSG;
+- dua faktor makro khas emas ikut masuk skor dengan bobot kecil: **indeks dolar AS** (20 hari ≤ −1,5% = +3, ≥ +1,5% = −3) dan **imbal hasil obligasi AS 10 tahun** (20 hari ≤ −0,15 poin = +2, ≥ +0,15 poin = −2). Ini kecenderungan historis, bukan kepastian.
+
+Bisa dibuka lewat pencarian (`emas`, `gold`, `xau`). Sumber harga adalah kontrak berjangka COMEX terdekat (`GC=F`), bukan spot; rupiah per gram adalah konversi matematis, bukan harga emas batangan ritel.
+
+## Cara membaca rekomendasi
+
+Setiap rekomendasi (saham maupun emas) membawa tiga lapis penjelasan:
+
+1. **Kalimat utama** — aksi, arti fasenya, dan hitungannya, mis. *"Beli — skor 83/100. Fase Mark Up: harga sedang dalam tren naik. Hitungannya: nilai dasar fase 69,9, ditambah 18,0 dari 5 faktor pendukung, dikurangi 5,0 dari 1 faktor pemberat."*
+2. **Yang perlu dilakukan** — langkah berurutan: di harga berapa antre/beli, di mana stop loss dan berapa persen ruginya, di mana ambil untung, dan berapa persen portofolio.
+3. **Yang mendukung / yang memberatkan** — tiap faktor dengan artinya, angkanya, aturan poinnya; plus tabel rincian yang jumlahnya selalu sama dengan skor akhir.
+
+Skor = basis fase siklus (ditarik ke 50 sesuai keyakinan fase) + aliran dana CMF (±3/±6) + MACD (positif & naik +4, positif & turun +2, negatif & naik −1, negatif & turun −3) + RSI (+3 / −8) + konfirmasi volume (±5) + MA200 (±2) + kekuatan relatif vs IHSG (±3) + timing (+4 / −2 / −6) − likuiditas (−4 / −10) − harga di atas zona (−5) atau tidak ada ruang ke target (−8) − R/R kurang (−6), dibatasi 0–100.
+
+Skor → aksi: ≥70 Beli · 58–69 Beli (Mark Up) / Beli Bertahap · 44–57 Pantau · 30–43 Ambil Untung (Hindari bila Mark Down, Pantau bila Akumulasi) · <30 Hindari. Aksi beli diturunkan ke Pantau bila R/R < 1, tidak ada ruang ke target, timing *Hindari Dulu*, atau harga > 10% di atas zona beli ideal — dan alasan penurunannya ditulis di kalimat utama.
+
+### Pemeriksaan hitungan
+
+Indikator diperiksa terhadap perhitungan pembanding yang ditulis terpisah (MA, RSI Wilder, ATR, MACD, Bollinger, stochastic, return, VWAP, OBV, posisi 52 minggu) pada candle yang sama, dan seluruh hasil pemindai diperiksa konsistensinya (stop < zona beli < target, R/R di batas atas zona ≥ 1:2, skor = jumlah rincian, tidak ada label beli yang bertentangan dengan timing). Dua salah hitung yang ditemukan dan dibetulkan:
+
+- **Posisi dalam rentang 52 minggu** dulu dihitung dari jarak-% ke puncak dan ke dasar yang penyebutnya berbeda (BBCA tampil 34%, seharusnya 22%). Kini `(harga − dasar) ÷ (puncak − dasar)`.
+- **Aliran dana OBV** dulu dibagi rata-rata OBV, yang nilainya bergantung pada panjang riwayat data. Kini arus bersih OBV 20 hari sebagai persen dari total volume 20 hari (selalu −100..+100).
 
 ## Berita Pasar & ringkasan lintas aset (`/berita`)
 
@@ -172,10 +202,12 @@ app/
   saham/[ticker]/page.tsx     Halaman analisis
   api/analysis/[ticker]/      Endpoint analisis lengkap
   api/council/                Sintesis naratif AI (opsional)
+  emas/page.tsx               Rekomendasi emas (XAU/USD)
   berita/page.tsx             Berita pasar & ringkasan lintas aset
   api/news/                   Endpoint berita saja
   api/market-news/            Berita pasar per topik
   api/markets/                Kutipan lintas aset (+ ?nft=1 harga dasar NFT)
+  api/gold/                   Analisis & rekomendasi emas
   api/search/                 Autocomplete ticker
 components/                   Panel UI (chart, dewan, story, teknikal, dll)
 lib/
@@ -186,6 +218,9 @@ lib/
   news.ts         Pengambilan & penilaian berita
   marketnews.ts   Berita pasar per topik (IHSG, emas, global, NFT, kripto, makro)
   markets.ts      Kutipan lintas aset, emas per gram, harga dasar NFT
+  gold.ts         Analisis emas: mesin saham + faktor dolar AS & imbal hasil
+  recommend.ts    Skor rekomendasi, pembatas aksi, dan penjelasan awam
+  tradeplan.ts    Zona beli, stop, target, ukuran posisi (format harga per aset)
   sentiment.ts    Leksikon sentimen + tema (bahasa Indonesia)
   story.ts        Deteksi momentum & validasi story
   council.ts      Rule engine Dewan Analis

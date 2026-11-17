@@ -103,6 +103,9 @@ export default function HomePage() {
           <Link href="/pasar" className="btn-ghost">
             📡 Buka Radar Pasar — saham trending, akumulasi & 4 siklus
           </Link>
+          <Link href="/emas" className="btn border border-warn/30 bg-warn/10 text-warn hover:bg-warn/20">
+            🥇 Rekomendasi emas (XAU/USD)
+          </Link>
           <Link href="/berita" className="btn-ghost">
             📰 Berita pasar — IHSG, emas & XAU, indeks global, NFT
           </Link>

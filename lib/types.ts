@@ -114,7 +114,7 @@ export interface IndicatorSet {
   ema12: number | null;
   ema26: number | null;
   rsi14: number | null;
-  macd: { macd: number; signal: number; hist: number } | null;
+  macd: { macd: number; signal: number; hist: number; /** histogram hari sebelumnya */ histPrev: number | null } | null;
   bb: { upper: number; mid: number; lower: number; pctB: number; widthPct: number } | null;
   atr14: number | null;
   atrPct: number | null;
@@ -129,6 +129,8 @@ export interface IndicatorSet {
   return250d: number | null;
   distFrom52wHigh: number | null;
   distFrom52wLow: number | null;
+  /** (harga − dasar) ÷ (puncak − dasar) rentang 52 minggu, 0–100. */
+  position52w: number | null;
   vwap20: number | null;
 }
 
@@ -399,6 +401,10 @@ export interface DataRecommendation {
   breakdown: ScoreItem[];
   plan: TradePlan;
   position: { pct: number; basis: string };
+  /** Satu kalimat: aksi dan alasan utamanya, dalam bahasa sehari-hari. */
+  headline: string;
+  /** Langkah konkret yang harus dilakukan, berurutan. */
+  steps: string[];
 }
 
 export interface ScreenerRow {
@@ -630,4 +636,47 @@ export interface MarketNewsReport {
   counts: { positive: number; negative: number; neutral: number; total: number };
   avgSentiment: number;
   last24h: number;
+}
+
+/* ------------------------------------------------------------------ */
+/* Emas dunia (XAU/USD)                                                 */
+/* ------------------------------------------------------------------ */
+
+export interface GoldMacro {
+  /** Indeks dolar AS (DXY) dan perubahan 20 hari, %. */
+  dxy: { value: number; ret20: number | null } | null;
+  /** Imbal hasil obligasi AS 10 tahun (%) dan perubahan 20 hari dalam poin persen. */
+  us10y: { value: number; chg20: number | null } | null;
+  /** Kurs USD/IDR dan perubahan 20 hari, %. */
+  usdIdr: { value: number; ret20: number | null } | null;
+}
+
+export interface GoldReport {
+  symbol: string;
+  price: number; // USD per troy ounce
+  change: number;
+  changePct: number;
+  updatedAt: number;
+  returns: { d1: number | null; d5: number | null; d20: number | null; d60: number | null; ytd: number | null; y1: number | null };
+  high52w: number;
+  low52w: number;
+  ma20: number | null;
+  ma50: number | null;
+  ma200: number | null;
+  rsi: number | null;
+  atrPct: number | null;
+  trend: TechnicalReport["trend"];
+  trendStrength: string;
+  techScore: number;
+  techBreakdown: TechnicalReport["breakdown"];
+  supports: number[];
+  resistances: number[];
+  cycle: CycleReport;
+  rec: DataRecommendation;
+  timing: Pick<EntrySignal, "verdict" | "label" | "score" | "situation" | "waitFor" | "reasons">;
+  macro: GoldMacro;
+  /** Konversi ke rupiah per gram (harga × kurs ÷ 31,1035). null bila kurs gagal dimuat. */
+  idr: { perGram: number; changePct: number; ret20: number | null; usdIdr: number } | null;
+  spark: number[];
+  candles?: Candle[];
 }

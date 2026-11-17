@@ -1,6 +1,6 @@
 import { detectPatterns } from "./candles";
 import { clamp, sma } from "./indicators";
-import { IDEAL_RR, roundTick } from "./tradeplan";
+import { IDEAL_RR, roundTick, rp } from "./tradeplan";
 import type {
   Candle,
   CandlePattern,
@@ -31,7 +31,6 @@ export const ENTRY_LABEL: Record<EntryVerdict, string> = {
   HINDARI: "Hindari Dulu",
 };
 
-const rp = (v: number) => `Rp ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(v)}`;
 const pc = (v: number, d = 1) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(d).replace(".", ",")}%`;
 
 function lastCross(closes: number[], ma: (number | null)[], within: number, dir: "up" | "down"): number | null {
@@ -402,7 +401,7 @@ export function buildEntrySignal(
             ? "Tutup di atas"
             : price <= floor.v + atr * 0.5
               ? "Sudah di zona — tunggu pola pembalikan di"
-              : `Turun ke ${floor.why.split(" Rp")[0]}`,
+              : `Turun ke ${floor.why.split(/ (?:Rp|\$)/)[0]}`,
       });
       if (confirmAt !== null && pHi >= pLo) trigger = { label: "Konfirmasi pantulan", price: confirmAt };
     }

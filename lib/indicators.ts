@@ -235,6 +235,21 @@ export function linRegSlopePct(values: number[]): number {
   return ((num / den) / Math.abs(meanY)) * 100 * n;
 }
 
+/** Kemiringan regresi linier (satuan nilai per bar). */
+export function linRegSlope(values: number[]): number {
+  const n = values.length;
+  if (n < 3) return 0;
+  const meanX = (n - 1) / 2;
+  const meanY = values.reduce((a, b) => a + b, 0) / n;
+  let num = 0;
+  let den = 0;
+  for (let i = 0; i < n; i++) {
+    num += (i - meanX) * (values[i] - meanY);
+    den += (i - meanX) ** 2;
+  }
+  return den === 0 ? 0 : num / den;
+}
+
 export function last<T>(arr: (T | null)[]): T | null {
   for (let i = arr.length - 1; i >= 0; i--) {
     if (arr[i] !== null && arr[i] !== undefined) return arr[i] as T;

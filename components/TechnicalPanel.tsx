@@ -110,7 +110,7 @@ export default function TechnicalPanel({ t, plan }: { t: TechnicalReport; plan?:
               tone={ind.volume && ind.volume.ratio20 > 1.2 ? "bull" : undefined}
             />
             <Stat
-              label="Aliran dana (OBV)"
+              label="Arus bersih OBV 20H"
               value={ind.obvSlopePct !== null ? fmtPct(ind.obvSlopePct, 1) : "—"}
               tone={(ind.obvSlopePct ?? 0) >= 0 ? "bull" : "bear"}
             />

@@ -8,16 +8,51 @@ import type { CycleReport, IndicatorSet, PriceLevel, TradePlan } from "./types";
  * menghasilkan angka itu — supaya pengguna bisa memeriksa ulang perhitungannya.
  */
 
-/** Fraksi harga BEI (berlaku untuk saham reguler). */
 /** R/R minimum di batas atas zona beli: potensi untung ke TP1 = 2× risiko ke stop. */
 export const IDEAL_RR = 2;
 
+/**
+ * Format kutipan: cara menulis harga dan kelipatan harga terkecil. Bawaannya
+ * rupiah + fraksi harga BEI; aset lain (mis. emas dalam USD per troy ounce)
+ * memakai `withQuoteFormat`.
+ */
+export interface QuoteFormat {
+  money: (v: number) => string;
+  tick: (price: number) => number;
+  /** Keterangan pembulatan untuk ditampilkan, mis. "fraksi harga BEI". */
+  tickLabel: string;
+}
+
+export const IDR_FORMAT: QuoteFormat = {
+  money: (v) => `Rp ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(v)}`,
+  // Fraksi harga BEI (berlaku untuk saham reguler).
+  tick: (price) => (price < 200 ? 1 : price < 500 ? 2 : price < 2000 ? 5 : price < 5000 ? 10 : 25),
+  tickLabel: "fraksi harga BEI",
+};
+
+let quoteFormat: QuoteFormat = IDR_FORMAT;
+
+/**
+ * Jalankan `fn` dengan format kutipan lain. `fn` HARUS sinkron: format disimpan
+ * di tingkat modul dan dipulihkan begitu `fn` selesai, jadi tidak boleh ada
+ * `await` di dalamnya (permintaan lain bisa menyela dan memakai format yang salah).
+ */
+export function withQuoteFormat<T>(fmt: QuoteFormat, fn: () => T): T {
+  const prev = quoteFormat;
+  quoteFormat = fmt;
+  try {
+    return fn();
+  } finally {
+    quoteFormat = prev;
+  }
+}
+
+export function tickLabel(): string {
+  return quoteFormat.tickLabel;
+}
+
 export function idxTick(price: number): number {
-  if (price < 200) return 1;
-  if (price < 500) return 2;
-  if (price < 2000) return 5;
-  if (price < 5000) return 10;
-  return 25;
+  return quoteFormat.tick(price);
 }
 
 export function roundTick(v: number, mode: "down" | "up" | "nearest" = "nearest"): number {
@@ -28,7 +63,7 @@ export function roundTick(v: number, mode: "down" | "up" | "nearest" = "nearest"
 }
 
 export function rp(v: number): string {
-  return `Rp ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(v)}`;
+  return quoteFormat.money(v);
 }
 
 export function pct(v: number, digits = 1, signed = true): string {
@@ -39,7 +74,7 @@ export function pct(v: number, digits = 1, signed = true): string {
 function level(price: number, ref: number, basis: string, raw?: number): PriceLevel {
   const note =
     raw !== undefined && Math.abs(raw - price) >= 0.5
-      ? ` Hasil hitung ${rp(raw)} dibulatkan ${raw > price ? "ke bawah" : "ke atas"} ke fraksi Rp${idxTick(price)}.`
+      ? ` Hasil hitung ${rp(raw)} dibulatkan ${raw > price ? "ke bawah" : "ke atas"} ke kelipatan ${rp(idxTick(price))}.`
       : "";
   return { price, pct: ((price - ref) / ref) * 100, basis: basis + note };
 }
@@ -63,7 +98,10 @@ export function buildTradePlan(
     const res = resistances[0];
     const sellRaw = res ?? price + atr * 1.5;
     const sell = roundTick(sellRaw, "down");
-    const reentry = roundTick(Math.max(cycle.range.high, ind.ma50 ?? 0, price + atr), "up");
+    // Syarat beli kembali harus di atas area jual: menjual di resistance lalu
+    // "beli kembali" di bawahnya akan saling bertentangan.
+    const reentryRaw = Math.max(cycle.range.high, ind.ma50 ?? 0, price + atr, sellRaw);
+    const reentry = roundTick(reentryRaw, "up");
 
     return {
       mode: "PEGANG",
@@ -90,8 +128,8 @@ export function buildTradePlan(
       reentry: level(
         reentry,
         price,
-        `Tertinggi dari: puncak rentang 40H ${rp(cycle.range.high)}${ind.ma50 ? `, MA50 ${rp(ind.ma50)}` : ""}, harga + 1×ATR. Beli kembali hanya bila ditutup di atas level ini.`,
-        Math.max(cycle.range.high, ind.ma50 ?? 0, price + atr),
+        `Tertinggi dari: puncak rentang 40H ${rp(cycle.range.high)}${ind.ma50 ? `, MA50 ${rp(ind.ma50)}` : ""}, harga + 1×ATR, dan area jual ${rp(sellRaw)}. Beli kembali hanya bila ditutup di atas level ini.`,
+        reentryRaw,
       ),
       riskPct: null,
       rewardPct: null,

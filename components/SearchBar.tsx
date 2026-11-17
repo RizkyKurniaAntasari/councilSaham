@@ -61,7 +61,9 @@ export default function SearchBar({
   const go = (ticker: string) => {
     setOpen(false);
     const t = ticker.trim().toUpperCase();
-    router.push(t === "IHSG" || t === "JKSE" || t === "^JKSE" ? "/ihsg" : `/saham/${t}`);
+    const special =
+      t === "IHSG" || t === "JKSE" || t === "^JKSE" ? "/ihsg" : t === "XAU" || t === "XAUUSD" || t === "EMAS" || t === "GOLD" ? "/emas" : null;
+    router.push(special ?? `/saham/${t}`);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {

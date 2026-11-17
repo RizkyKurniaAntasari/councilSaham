@@ -5,7 +5,7 @@ import {
   clamp,
   ema,
   last,
-  linRegSlopePct,
+  linRegSlope,
   macd,
   obv,
   pctChange,
@@ -53,6 +53,15 @@ export function buildIndicators(candles: Candle[]): IndicatorSet {
   const tpv = last20.reduce((acc, c) => acc + ((c.h + c.l + c.c) / 3) * c.v, 0);
   const totalVol = last20.reduce((acc, c) => acc + c.v, 0);
 
+  // Arus bersih OBV 20 hari sebagai % dari total volume 20 hari. OBV adalah
+  // akumulasi sejak awal data, jadi levelnya sembarang — membaginya dengan rata-rata
+  // OBV (cara lama) memberi angka yang bergantung pada panjang riwayat. Dibagi total
+  // volume, hasilnya selalu −100..+100 dan sebanding antar saham.
+  const obv20 = obvSeries.slice(-20);
+  const netObv = obv20.length === 20 ? linRegSlope(obv20) * (obv20.length - 1) : null;
+
+  const histSeries = m.hist.filter((v): v is number => v !== null);
+
   const ret = (days: number) =>
     n > days ? pctChange(closes[n - 1 - days], price) : null;
 
@@ -71,6 +80,7 @@ export function buildIndicators(candles: Candle[]): IndicatorSet {
             macd: last(m.macdLine) as number,
             signal: last(m.signalLine) as number,
             hist: (last(m.hist) as number) ?? 0,
+            histPrev: histSeries.length >= 2 ? histSeries[histSeries.length - 2] : null,
           }
         : null,
     bb:
@@ -87,7 +97,7 @@ export function buildIndicators(candles: Candle[]): IndicatorSet {
     atrPct: atrLast !== null && price ? (atrLast / price) * 100 : null,
     stoch:
       last(st.k) !== null ? { k: last(st.k) as number, d: (last(st.d) as number) ?? 50 } : null,
-    obvSlopePct: obvSeries.length > 20 ? linRegSlopePct(obvSeries.slice(-20)) : null,
+    obvSlopePct: netObv !== null && totalVol > 0 ? clamp((netObv / totalVol) * 100, -100, 100) : null,
     volume: vol20
       ? {
           last: lastVol,
@@ -105,6 +115,8 @@ export function buildIndicators(candles: Candle[]): IndicatorSet {
     return250d: ret(250),
     distFrom52wHigh: high52w ? pctChange(high52w, price) : null,
     distFrom52wLow: low52w ? pctChange(low52w, price) : null,
+    position52w:
+      high52w !== null && low52w !== null && high52w > low52w ? ((price - low52w) / (high52w - low52w)) * 100 : null,
     vwap20: totalVol ? tpv / totalVol : null,
   };
 }
@@ -325,8 +337,9 @@ export function buildTechnical(candles: Candle[]): TechnicalReport {
   // 8. Posisi 52 minggu
   let posScore = 50;
   if (ind.distFrom52wHigh !== null && ind.distFrom52wLow !== null) {
-    const range = Math.abs(ind.distFrom52wLow) + Math.abs(ind.distFrom52wHigh);
-    const posPct = range ? (Math.abs(ind.distFrom52wLow) / range) * 100 : 50;
+    // Posisi = (harga − dasar) ÷ (puncak − dasar). Jarak % ke puncak dan ke dasar
+    // berpenyebut beda, jadi tidak boleh dijumlahkan untuk mendapat posisi.
+    const posPct = ind.position52w ?? 50;
     posScore = clamp(posPct);
     push(
       "Posisi dalam rentang 52 minggu",
@@ -377,13 +390,16 @@ export function buildTechnical(candles: Candle[]): TechnicalReport {
       label: "Aliran dana OBV (20H)",
       score: Math.round(obvScore),
       weight: 0.09,
-      detail: ind.obvSlopePct !== null ? `Kemiringan OBV ${f1(ind.obvSlopePct)}% → 50 + kemiringan × 0,6.` : "Tidak tersedia.",
+      detail:
+        ind.obvSlopePct !== null
+          ? `Arus bersih OBV ${f1(ind.obvSlopePct)}% dari total volume 20 hari → 50 + arus × 0,6.`
+          : "Tidak tersedia.",
     },
     {
       label: "Posisi dalam rentang 52 minggu",
       score: Math.round(posScore),
       weight: 0.12,
-      detail: "0 = di dasar 52 minggu, 100 = di puncak.",
+      detail: "(harga − dasar) ÷ (puncak − dasar) rentang 52 minggu: 0 = di dasar, 100 = di puncak.",
     },
     {
       label: "Return 5/20/60 hari",

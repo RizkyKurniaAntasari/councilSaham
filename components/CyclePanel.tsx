@@ -2,7 +2,7 @@ import { fmtDate, fmtIDR, fmtNumber } from "@/lib/format";
 import type { CycleReport, DataRecommendation } from "@/lib/types";
 import { CycleWave, PHASE_META, PHASE_ORDER, PhaseBadge, RecBadge } from "./cycle-ui";
 import { REC_BANDS } from "@/lib/recommend";
-import { PlanLevels, PlanRiskLine, ScoreBreakdown } from "./plan-ui";
+import { PlanLevels, PlanRiskLine, RecExplain, ScoreBreakdown } from "./plan-ui";
 import { BulletList, ScoreRing, Section, Stat } from "./ui";
 
 function Timeline({ points }: { points: CycleReport["timeline"] }) {
@@ -112,6 +112,10 @@ export default function CyclePanel({ cycle, rec }: { cycle: CycleReport; rec: Da
               <ScoreRing score={rec.score} size={92} sublabel="skor" />
             </div>
 
+            <div className="mt-4">
+              <RecExplain rec={rec} />
+            </div>
+
             {/* Level harga — angka sama persis dengan Dewan Analis & Teknikal */}
             <div className="mt-4">
               <p className="stat-label mb-1">
@@ -134,8 +138,18 @@ export default function CyclePanel({ cycle, rec }: { cycle: CycleReport; rec: Da
             </div>
 
             <div className="mt-4 space-y-3">
-              <BulletList items={rec.reasons} tone="bull" />
-              <BulletList items={rec.warnings} tone="warn" />
+              {rec.reasons.length > 0 && (
+                <div>
+                  <p className="stat-label mb-1.5 text-bull">Yang mendukung</p>
+                  <BulletList items={rec.reasons} tone="bull" />
+                </div>
+              )}
+              {rec.warnings.length > 0 && (
+                <div>
+                  <p className="stat-label mb-1.5 text-warn">Yang memberatkan / perlu diwaspadai</p>
+                  <BulletList items={rec.warnings} tone="warn" />
+                </div>
+              )}
             </div>
 
             <details className="group mt-4">

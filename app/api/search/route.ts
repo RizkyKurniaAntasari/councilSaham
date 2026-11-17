@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { IDX_TICKERS, POPULAR_TICKERS } from "@/data/idx-tickers";
+import { isGoldQuery } from "@/lib/gold";
 import { isIhsgQuery } from "@/lib/ihsg";
 import { searchSymbols } from "@/lib/yahoo";
 
@@ -52,5 +53,8 @@ export async function GET(req: Request) {
   const index: SearchHit[] = isIhsgQuery(q)
     ? [{ ticker: "IHSG", name: "Indeks Harga Saham Gabungan (IDX Composite)", sector: "Indeks", source: "lokal" }]
     : [];
-  return NextResponse.json({ results: [...index, ...local, ...fromExchange] });
+  const gold: SearchHit[] = isGoldQuery(q)
+    ? [{ ticker: "XAU", name: "Emas Dunia (XAU/USD) — rekomendasi & zona beli", sector: "Komoditas", source: "lokal" }]
+    : [];
+  return NextResponse.json({ results: [...index, ...gold, ...local, ...fromExchange] });
 }

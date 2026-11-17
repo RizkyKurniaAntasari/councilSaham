@@ -1,3 +1,4 @@
+import { rp } from "./tradeplan";
 import type { Candle, CandlePattern } from "./types";
 
 /**
@@ -25,8 +26,9 @@ const bull = (c: Candle) => c.c > c.o;
 const bear = (c: Candle) => c.c < c.o;
 const mid = (c: Candle) => (c.o + c.c) / 2;
 
+/** Mengikuti format kutipan aktif (rupiah untuk saham, USD/oz untuk emas). */
 function fmt(v: number): string {
-  return `Rp ${new Intl.NumberFormat("id-ID", { maximumFractionDigits: 0 }).format(v)}`;
+  return rp(v);
 }
 
 /** Turun sebelum bar i: penutupan bar i−1 di bawah penutupan 5 bar sebelumnya. */
